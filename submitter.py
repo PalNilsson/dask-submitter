@@ -151,7 +151,7 @@ if __name__ == '__main__':
     # create scheduler yaml
     scheduler_path = os.path.join(os.getcwd(), yaml_files.get('dask-scheduler'))
     scheduler_yaml = utilities.get_scheduler_yaml(image_source="palnilsson/dask-scheduler:latest", nfs_path="/mnt/dask")
-    status = utilities.write_file(scheduler_yaml)
+    status = utilities.write_file(scheduler_path, scheduler_yaml)
     if not status:
         logger.warning('cannot continue since yaml file could not be created')
         exit(-1)
