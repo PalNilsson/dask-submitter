@@ -156,6 +156,7 @@ if __name__ == '__main__':
         logger.warning('cannot continue since yaml file could not be created')
         exit(-1)
 
+    # start the dask scheduler pod
     status = utilities.kubectl_create(yaml=scheduler_path)
     if not status:
         exit(-1)

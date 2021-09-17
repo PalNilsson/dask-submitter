@@ -458,15 +458,20 @@ spec:
     return yaml
 
 
-def get_scheduler_ip(pod=None):
+def get_scheduler_ip(pod=None, timeout=120):
     """
     Wait for the scheduler to start, then grab the scheduler IP from the stdout.
 
     :param pod: pod name (string).
+    :param timeout: time-out (integer).
     :return: scheduler IP (string).
     """
 
     scheduler_ip = ""
+
+    status = wait_until_deployment(pod=None, state=None, timeout=120)
+    if not status:
+        return scheduler_ip
 
     # get the scheduler stdout
     stdout = kubectl_logs(pod=pod)
@@ -481,7 +486,6 @@ def get_scheduler_ip(pod=None):
             _ip = re.findall(pattern, line)
             if _ip:
                 scheduler_ip = _ip[0]
-
                 break
 
     if scheduler_ip:
