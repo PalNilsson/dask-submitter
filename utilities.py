@@ -122,24 +122,46 @@ def kubectl_delete(yaml=None):
     return kubectl_execute(cmd='delete', yaml=yaml)
 
 
-def kubectl_execute(cmd=None, yaml=None):
+def kubectl_logs(pod=None):
     """
-    Execute the kubectl create command for a given yaml file.
+    Execute the kubectl logs command for a given pod name.
+
+    :param pod: pod name (string).
+    :return: stdout logs (string).
+    """
+
+    if not pod:
+        return None
+
+    return kubectl_execute(cmd='logs', yaml=yaml)
+
+
+def kubectl_execute(cmd=None, yaml=None, pod=None):
+    """
+    Execute the kubectl create command for a given yaml file or pod name.
 
     :param cmd: kubectl command (string).
     :param yaml: yaml file name (string).
+    :param pod: pod name (string).
     :return: True if success (Boolean).
     """
 
-    if not cmd or not yaml:
-        logger.warning('kubectl command not set or yaml not set')
+    if not cmd:
+        logger.warning('kubectl command not set not set')
         return None
-    if cmd not in ['create', 'delete']:
+    if not yaml and not pod:
+        logger.warning('neither yaml or pod specified')
+        return None
+    if cmd not in ['create', 'delete', 'logs']:
         logger.warning('unknown kubectl command: %s', cmd)
         return None
 
-    cmd = 'kubectl %s -f %s' % (cmd, yaml)
-    exitcode, stdout, stderr = execute(cmd)
+    if cmd in ['create', 'delete']:
+        execmd = 'kubectl %s -f %s' % (cmd, yaml)
+    else:
+        execmd = 'kubectl %s %s' % (cmd, pod)
+
+    exitcode, stdout, stderr = execute(execmd)
     if exitcode and stderr.lower().startswith('error'):
         logger.warning('failed:\n%s', stderr)
         status = False
@@ -433,11 +455,35 @@ spec:
     return yaml
 
 
-def get_scheduler_ip():
+def get_scheduler_ip(pod=None):
     """
     Wait for the scheduler to start, then grab the scheduler IP from the stdout.
 
+    :param pod: pod name (string).
     :return: scheduler IP (string).
     """
 
-    return ""
+    scheduler_ip = ""
+
+    # get the scheduler stdout
+    stdout = kubectl_logs(pod=pod)
+    if not stdout:
+        logger.warning('failed to extract scheduler IP from kubectl logs command')
+        return scheduler_ip
+
+    pattern = r'tcp://[0-9]+(?:\.[0-9]+){3}:[0-9]+'
+    for line in stdout.split('\n'):
+        # also look for the Jupyter IP (different line)
+        if "Scheduler at:" in line:
+            _ip = re.findall(pattern, line)
+            if _ip:
+                scheduler_ip = _ip[0]
+
+                break
+
+    if scheduler_ip:
+        logger.info('extracted scheduler IP: %s', scheduler_ip)
+    else:
+        logger.info(stdout)
+
+    return scheduler_ip

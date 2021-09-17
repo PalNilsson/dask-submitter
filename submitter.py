@@ -161,10 +161,11 @@ if __name__ == '__main__':
         exit(-1)
 
     # extract scheduler IP from stdout (when available)
-    scheduler_ip = utilities.get_scheduler_ip()
+    scheduler_ip = utilities.get_scheduler_ip(pod='dask-scheduler')
     if not scheduler_ip:
         exit(-1)
 
+    #status = utilities.kubectl_delete(yaml=scheduler_path)
     exit(0)
 
     pod = 'dask-pilot'
