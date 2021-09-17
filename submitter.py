@@ -156,7 +156,6 @@ if __name__ == '__main__':
         logger.warning('cannot continue since yaml file could not be created')
         exit(-1)
 
-    exit(-1)
     status = utilities.deploy(yaml=scheduler_path)
     if not status:
         exit(-1)
