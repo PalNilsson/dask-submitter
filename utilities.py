@@ -94,7 +94,7 @@ def execute(executable, **kwargs):
         return exit_code, stdout, stderr
 
 
-def deploy(yaml=None):
+def kubectl_create(yaml=None):
     """
     Execute the kubectl create command for a given yaml file.
 
@@ -105,7 +105,40 @@ def deploy(yaml=None):
     if not yaml:
         return None
 
-    cmd = 'kubectl create -f %s' % yaml
+    return kubectl_execute(cmd='create', yaml=yaml)
+
+
+def kubectl_delete(yaml=None):
+    """
+    Execute the kubectl delete command for a given yaml file.
+
+    :param yaml: yaml file name (string).
+    :return: True if success (Boolean).
+    """
+
+    if not yaml:
+        return None
+
+    return kubectl_execute(cmd='delete', yaml=yaml)
+
+
+def kubectl_execute(cmd=None, yaml=None):
+    """
+    Execute the kubectl create command for a given yaml file.
+
+    :param cmd: kubectl command (string).
+    :param yaml: yaml file name (string).
+    :return: True if success (Boolean).
+    """
+
+    if not cmd or not yaml:
+        logger.warning('kubectl command not set or yaml not set')
+        return None
+    if cmd not in ['create', 'delete']:
+        logger.warning('unknown kubectl command: %s', cmd)
+        return None
+
+    cmd = 'kubectl %s -f %s' % (cmd, yaml)
     exitcode, stdout, stderr = execute(cmd)
     if exitcode and stderr.lower().startswith('error'):
         logger.warning('failed:\n%s', stderr)
@@ -398,3 +431,13 @@ spec:
     yaml = yaml.replace('CHANGE_NFS_PATH', nfs_path)
 
     return yaml
+
+
+def get_scheduler_ip():
+    """
+    Wait for the scheduler to start, then grab the scheduler IP from the stdout.
+
+    :return: scheduler IP (string).
+    """
+
+    return ""

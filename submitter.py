@@ -156,12 +156,16 @@ if __name__ == '__main__':
         logger.warning('cannot continue since yaml file could not be created')
         exit(-1)
 
-    status = utilities.deploy(yaml=scheduler_path)
+    status = utilities.kubectl_create(yaml=scheduler_path)
     if not status:
         exit(-1)
 
     # extract scheduler IP from stdout (when available)
-    exit(-1)
+    scheduler_ip = utilities.get_scheduler_ip()
+    if not scheduler_ip:
+        exit(-1)
+
+    exit(0)
 
     pod = 'dask-pilot'
     status = utilities.wait_until_deployment(pod=pod, state='Running')
