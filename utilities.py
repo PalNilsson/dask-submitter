@@ -11,9 +11,48 @@ import logging
 import os
 import re
 import subprocess
+import sys
 import time
 
 logger = logging.getLogger(__name__)
+
+
+def establish_logging(debug=True, nopilotlog=False, filename="dasksubmitter.stdout", loglevel=0):
+    """
+    Setup and establish logging.
+
+    Option loglevel can be used to decide which (predetermined) logging format to use.
+    Example:
+      loglevel=0: '%(asctime)s | %(levelname)-8s | %(name)-32s | %(funcName)-25s | %(message)s'
+      loglevel=1: 'ts=%(asctime)s level=%(levelname)-8s event=%(name)-32s.%(funcName)-25s msg="%(message)s"'
+
+    :param debug: debug mode (Boolean).
+    :param nopilotlog: True when pilot log is not known (Boolean).
+    :param filename: name of log file (string).
+    :param loglevel: selector for logging level (int).
+    :return:
+    """
+
+    _logger = logging.getLogger('')
+    _logger.handlers = []
+    _logger.propagate = False
+
+    console = logging.StreamHandler(sys.stdout)
+    if debug:
+        format_str = '%(asctime)s | %(levelname)-8s | %(name)-32s | %(funcName)-25s | %(message)s'
+        level = logging.DEBUG
+    else:
+        format_str = '%(asctime)s | %(levelname)-8s | %(message)s'
+        level = logging.INFO
+
+    if nopilotlog:
+        logging.basicConfig(level=level, format=format_str, filemode='w')
+    else:
+        logging.basicConfig(filename=filename, level=level, format=format_str, filemode='w')
+    console.setLevel(level)
+    console.setFormatter(logging.Formatter(format_str))
+    logging.Formatter.converter = time.gmtime
+    _logger.addHandler(console)
 
 
 def execute(executable, **kwargs):
@@ -359,38 +398,3 @@ spec:
     yaml = yaml.replace('CHANGE_NFS_PATH', nfs_path)
 
     return yaml
-
-
-if __name__ == '__main__':
-
-    yaml_files = {
-        'dask-scheduler': 'dask-scheduler-deployment.yaml',
-        'dask-worker': 'dask-worker-deployment.yaml',
-        'dask-pilot': 'dask-pilot-deployment.yaml',
-    }
-
-    # create scheduler yaml
-    scheduler_path = os.path.join(os.getcwd(), yaml_files.get('dask-scheduler'))
-    scheduler_yaml = get_scheduler_yaml(image_source="palnilsson/dask-scheduler:latest", nfs_path="/mnt/dask")
-    status = write_file(scheduler_yaml)
-    if not status:
-        logger.warning('cannot continue since yaml file could not be created')
-        exit(-1)
-
-    exit(-1)
-    status = deploy(yaml=scheduler_path)
-    if not status:
-        exit(-1)
-
-    # extract scheduler IP from stdout (when available)
-    exit(-1)
-
-    pod = 'dask-pilot'
-    status = wait_until_deployment(pod=pod, state='Running')
-    if not status:
-        exit(-1)
-    else:
-        logger.info('pod %s is running', pod)
-
-    # extract scheduler IP from stdout (when available)
-    # ..

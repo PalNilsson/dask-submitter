@@ -9,6 +9,7 @@
 
 import logging
 import os
+import sys
 
 #try:
 #    # import dask
@@ -131,5 +132,46 @@ class DaskSubmitter(object):
 
         return status
 
+
 if __name__ == '__main__':
-    pass
+
+    utilities.establish_logging()
+    logging.info("Dask submitter")
+    logging.info("Python version %s", sys.version)
+    logging.info('working directory: %s', os.getcwd())
+
+    submitter = DaskSubmitter()
+
+    yaml_files = {
+        'dask-scheduler': 'dask-scheduler-deployment.yaml',
+        'dask-worker': 'dask-worker-deployment.yaml',
+        'dask-pilot': 'dask-pilot-deployment.yaml',
+    }
+
+    # create scheduler yaml
+    scheduler_path = os.path.join(os.getcwd(), yaml_files.get('dask-scheduler'))
+    scheduler_yaml = utilities.get_scheduler_yaml(image_source="palnilsson/dask-scheduler:latest", nfs_path="/mnt/dask")
+    status = utilities.write_file(scheduler_yaml)
+    if not status:
+        logger.warning('cannot continue since yaml file could not be created')
+        exit(-1)
+
+    exit(-1)
+    status = utilities.deploy(yaml=scheduler_path)
+    if not status:
+        exit(-1)
+
+    # extract scheduler IP from stdout (when available)
+    exit(-1)
+
+    pod = 'dask-pilot'
+    status = utilities.wait_until_deployment(pod=pod, state='Running')
+    if not status:
+        exit(-1)
+    else:
+        logger.info('pod %s is running', pod)
+
+    # extract scheduler IP from stdout (when available)
+    # ..
+
+    exit(0)
