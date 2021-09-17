@@ -10,6 +10,7 @@
 import logging
 import os
 import sys
+import time
 
 #try:
 #    # import dask
@@ -138,7 +139,7 @@ if __name__ == '__main__':
     utilities.establish_logging()
     logging.info("*** Dask submitter ***")
     logging.info("Python version %s", sys.version)
-
+    starttime = time.time()
     submitter = DaskSubmitter()
 
     yaml_files = {
@@ -181,6 +182,12 @@ if __name__ == '__main__':
         if not status:
             logger.warning('cannot continue since yaml file could not be created')
             exit(-1)
+
+        # start the worker pod
+        status, _ = utilities.kubectl_create(yaml=worker_path)
+        if not status:
+            exit(-1)
+        logger.info('deployed dask-worker-%d pod', iworker)
 
     #status = utilities.kubectl_delete(yaml=scheduler_path)
     exit(0)
