@@ -287,7 +287,7 @@ spec:
     persistentVolumeClaim:
       claimName: fileserver-claim
       readOnly: false
-    """
+"""
 
     yaml = yaml.replace('CHANGE_IMAGE_SOURCE', image_source)
     yaml = yaml.replace('CHANGE_NFS_PATH', nfs_path)
