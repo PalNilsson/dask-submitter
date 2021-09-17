@@ -497,12 +497,11 @@ def get_scheduler_ip(pod=None, timeout=120):
                     break
 
         if scheduler_ip:
-            logger.info('extracted scheduler IP: %s', scheduler_ip)
             break
         else:
             # IP has not yet been extracted, wait longer and try again
             if first:
-                logger.info('sleeping until scheduler IP s known (timeout=%d s)', timeout)
+                logger.info('sleeping until scheduler IP is known (timeout=%d s)', timeout)
                 first = False
             time.sleep(_sleep)
             now = time.time()

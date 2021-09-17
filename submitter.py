@@ -143,7 +143,7 @@ if __name__ == '__main__':
 
     yaml_files = {
         'dask-scheduler': 'dask-scheduler-deployment.yaml',
-        'dask-worker': 'dask-worker-deployment.yaml',
+        'dask-worker': 'dask-worker-deployment-%d.yaml',
         'dask-pilot': 'dask-pilot-deployment.yaml',
     }
 
@@ -165,6 +165,18 @@ if __name__ == '__main__':
     scheduler_ip = utilities.get_scheduler_ip(pod='dask-scheduler')
     if not scheduler_ip:
         exit(-1)
+    logger.info('using dask-scheduler IP: %s', scheduler_ip)
+
+    # loop over required workers
+    nworkers = 2
+    for iworker in range(nworkers):
+        # create worker yaml
+        worker_path = os.path.join(os.getcwd(), yaml_files.get('dask-worker') % iworker)
+        # create worker yaml
+        scheduler_yaml = utilities.get_worker_yaml(image_source="palnilsson/dask-worker:latest",
+                                                   nfs_path="/mnt/dask",
+                                                   scheduler_ip=scheduler_ip,
+                                                   worker_name='dask-worker-%d' % iworker)
 
     #status = utilities.kubectl_delete(yaml=scheduler_path)
     exit(0)
