@@ -165,7 +165,8 @@ def kubectl_execute(cmd=None, yaml=None, pod=None):
         execmd = 'kubectl %s %s' % (cmd, pod)
 
     exitcode, stdout, stderr = execute(execmd)
-    if exitcode and stderr.lower().startswith('error'):
+#    if exitcode and stderr.lower().startswith('error'):
+    if exitcode and stderr:
         logger.warning('failed:\n%s', stderr)
         status = False
     else:

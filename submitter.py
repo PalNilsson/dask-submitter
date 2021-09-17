@@ -190,6 +190,8 @@ if __name__ == '__main__':
         logger.info('deployed dask-worker-%d pod', iworker)
 
     #status = utilities.kubectl_delete(yaml=scheduler_path)
+    now = time.time()
+    logger.info('total running time: %d s', now - starttime)
     exit(0)
 
     pod = 'dask-pilot'
