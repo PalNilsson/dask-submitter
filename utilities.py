@@ -84,7 +84,10 @@ def execute(executable, **kwargs):
                                stdout=stdout,
                                stderr=stderr,
                                cwd=cwd,
-                               preexec_fn=os.setsid)
+                               preexec_fn=os.setsid,
+                               encoding='utf-8',
+                               errors='replace'
+                               )
     if returnproc:
         return process
     else:
