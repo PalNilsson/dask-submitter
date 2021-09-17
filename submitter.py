@@ -136,9 +136,8 @@ class DaskSubmitter(object):
 if __name__ == '__main__':
 
     utilities.establish_logging()
-    logging.info("Dask submitter")
+    logging.info("*** Dask submitter ***")
     logging.info("Python version %s", sys.version)
-    logging.info('working directory: %s', os.getcwd())
 
     submitter = DaskSubmitter()
 
@@ -160,8 +159,7 @@ if __name__ == '__main__':
     status, _ = utilities.kubectl_create(yaml=scheduler_path)
     if not status:
         exit(-1)
-    else:
-        logger.info('deployed dask-scheduler pod')
+    logger.info('deployed dask-scheduler pod')
 
     # extract scheduler IP from stdout (when available)
     scheduler_ip = utilities.get_scheduler_ip(pod='dask-scheduler')

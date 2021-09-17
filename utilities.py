@@ -214,7 +214,7 @@ def wait_until_deployment(pod=None, state=None, timeout=120):
                         processing = False
                         break
                 if first:
-                    logger.info('%s not yet running, sleeping for a while (timeout=%d s)', name, timeout)
+                    logger.info('sleeping until %s is running (timeout=%d s)', name, timeout)
                     first = False
                 time.sleep(_sleep)
 
@@ -502,7 +502,7 @@ def get_scheduler_ip(pod=None, timeout=120):
         else:
             # IP has not yet been extracted, wait longer and try again
             if first:
-                logger.info('scheduler IP could not be extracted, sleeping for a while (timeout=%d s)', timeout)
+                logger.info('sleeping until scheduler IP s known (timeout=%d s)', timeout)
                 first = False
             time.sleep(_sleep)
             now = time.time()
