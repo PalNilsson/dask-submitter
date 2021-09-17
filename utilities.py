@@ -169,7 +169,6 @@ def kubectl_execute(cmd=None, yaml=None, pod=None):
         logger.warning('failed:\n%s', stderr)
         status = False
     else:
-        logger.info('deployed %s', yaml)
         status = True
 
     return status
@@ -469,7 +468,7 @@ def get_scheduler_ip(pod=None, timeout=120):
 
     scheduler_ip = ""
 
-    status = wait_until_deployment(pod=None, state=None, timeout=120)
+    status = wait_until_deployment(pod=pod, state='Running', timeout=120)
     if not status:
         return scheduler_ip
 

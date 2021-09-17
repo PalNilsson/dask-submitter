@@ -151,7 +151,7 @@ if __name__ == '__main__':
     # create scheduler yaml
     scheduler_path = os.path.join(os.getcwd(), yaml_files.get('dask-scheduler'))
     scheduler_yaml = utilities.get_scheduler_yaml(image_source="palnilsson/dask-scheduler:latest", nfs_path="/mnt/dask")
-    status = utilities.write_file(scheduler_path, scheduler_yaml)
+    status = utilities.write_file(scheduler_path, scheduler_yaml, mute=False)
     if not status:
         logger.warning('cannot continue since yaml file could not be created')
         exit(-1)
@@ -160,6 +160,8 @@ if __name__ == '__main__':
     status = utilities.kubectl_create(yaml=scheduler_path)
     if not status:
         exit(-1)
+    else:
+        logger.info('deployed dask-scheduler pod')
 
     # extract scheduler IP from stdout (when available)
     scheduler_ip = utilities.get_scheduler_ip(pod='dask-scheduler')
