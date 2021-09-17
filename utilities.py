@@ -472,24 +472,30 @@ def get_scheduler_ip(pod=None, timeout=120):
     if not status:
         return scheduler_ip
 
-    # get the scheduler stdout
-    status, stdout = kubectl_logs(pod=pod)
-    if not status or not stdout:
-        logger.warning('failed to extract scheduler IP from kubectl logs command')
-        return scheduler_ip
+    starttime = time.time()
+    now = starttime
+    while (now - starttime < timeout):
+        # get the scheduler stdout
+        status, stdout = kubectl_logs(pod=pod)
+        if not status or not stdout:
+            logger.warning('failed to extract scheduler IP from kubectl logs command')
+            return scheduler_ip
 
-    pattern = r'tcp://[0-9]+(?:\.[0-9]+){3}:[0-9]+'
-    for line in stdout.split('\n'):
-        # also look for the Jupyter IP (different line)
-        if "Scheduler at:" in line:
-            _ip = re.findall(pattern, line)
-            if _ip:
-                scheduler_ip = _ip[0]
-                break
+        pattern = r'tcp://[0-9]+(?:\.[0-9]+){3}:[0-9]+'
+        for line in stdout.split('\n'):
+            # also look for the Jupyter IP (different line)
+            if "Scheduler at:" in line:
+                _ip = re.findall(pattern, line)
+                if _ip:
+                    scheduler_ip = _ip[0]
+                    break
 
-    if scheduler_ip:
-        logger.info('extracted scheduler IP: %s', scheduler_ip)
-    else:
-        logger.info(stdout)
+        if scheduler_ip:
+            logger.info('extracted scheduler IP: %s', scheduler_ip)
+            break
+        else:
+            # IP has not yet been extracted, wait longer and try again
+            time.sleep(5)
+            now = time.time()
 
     return scheduler_ip
