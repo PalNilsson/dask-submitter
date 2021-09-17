@@ -204,13 +204,12 @@ def wait_until_deployment(pod=None, state=None, timeout=120):
         dictionary = _convert_to_dict(stdout)
         if dictionary:
             for name in dictionary:
-                logger.info('processing status of %s', name)
                 _dic = dictionary.get(name)
                 if 'STATUS' in _dic:
                     _state = _dic.get('STATUS')
                     if _state == state:
                         break
-                logger.info('%s not yet running, sleeping %d seconds', _sleep)
+                logger.info('%s not yet running, sleeping %d seconds', name, _sleep)
                 time.sleep(_sleep)
 
         now = time.time()
