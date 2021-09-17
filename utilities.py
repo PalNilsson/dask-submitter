@@ -194,6 +194,7 @@ def wait_until_deployment(pod=None, state=None, timeout=120):
     now = starttime
     _state = None
     _sleep = 5
+    first = True
     while (now - starttime < timeout):
 
         exitcode, stdout, stderr = execute("kubectl get pod %s" % pod)
@@ -208,8 +209,11 @@ def wait_until_deployment(pod=None, state=None, timeout=120):
                 if 'STATUS' in _dic:
                     _state = _dic.get('STATUS')
                     if _state == state:
+                        logger.info('%s is running', name)
                         break
-                logger.info('%s not yet running, sleeping %d seconds', name, _sleep)
+                if first:
+                    logger.info('%s not yet running, sleeping for a while (timeout=%d s)', name, timeout)
+                    first = False
                 time.sleep(_sleep)
 
         now = time.time()
@@ -473,6 +477,7 @@ def get_scheduler_ip(pod=None, timeout=120):
     starttime = time.time()
     now = starttime
     _sleep = 5  # sleeping time between attempts
+    first = True
     while (now - starttime < timeout):
         # get the scheduler stdout
         status, stdout = kubectl_logs(pod=pod)
@@ -494,7 +499,9 @@ def get_scheduler_ip(pod=None, timeout=120):
             break
         else:
             # IP has not yet been extracted, wait longer and try again
-            logger.info('scheduler IP could not be extracted, sleeping %d seconds', _sleep)
+            if first:
+                logger.info('scheduler IP could not be extracted, sleeping for a while (timeout=%d s)', timeout)
+                first = False
             time.sleep(_sleep)
             now = time.time()
 
