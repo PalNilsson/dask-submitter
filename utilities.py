@@ -387,6 +387,8 @@ def get_worker_yaml(image_source="", nfs_path="", scheduler_ip="", worker_name="
     yaml = """
 apiVersion: v1
 kind: Pod
+metadata:
+  name: CHANGE_WORKER_NAME
 spec:
   restartPolicy: Never
   containers:
