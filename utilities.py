@@ -146,7 +146,7 @@ def kubectl_execute(cmd=None, yaml=None, pod=None):
     :param cmd: kubectl command (string).
     :param yaml: yaml file name (string).
     :param pod: pod name (string).
-    :return: True if success (Boolean).
+    :return: True if success, stdout (Boolean, string).
     """
 
     if not cmd:
@@ -171,7 +171,7 @@ def kubectl_execute(cmd=None, yaml=None, pod=None):
     else:
         status = True
 
-    return status
+    return status, stdout
 
 
 def wait_until_deployment(pod=None, state=None, timeout=120):
@@ -473,8 +473,8 @@ def get_scheduler_ip(pod=None, timeout=120):
         return scheduler_ip
 
     # get the scheduler stdout
-    stdout = kubectl_logs(pod=pod)
-    if not stdout:
+    status, stdout = kubectl_logs(pod=pod)
+    if not status or not stdout:
         logger.warning('failed to extract scheduler IP from kubectl logs command')
         return scheduler_ip
 

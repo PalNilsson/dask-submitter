@@ -157,7 +157,7 @@ if __name__ == '__main__':
         exit(-1)
 
     # start the dask scheduler pod
-    status = utilities.kubectl_create(yaml=scheduler_path)
+    status, _ = utilities.kubectl_create(yaml=scheduler_path)
     if not status:
         exit(-1)
     else:
