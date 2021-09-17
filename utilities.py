@@ -133,7 +133,7 @@ def kubectl_logs(pod=None):
     if not pod:
         return None
 
-    return kubectl_execute(cmd='logs', yaml=yaml)
+    return kubectl_execute(cmd='logs', pod=pod)
 
 
 def kubectl_execute(cmd=None, yaml=None, pod=None):
