@@ -173,10 +173,14 @@ if __name__ == '__main__':
         # create worker yaml
         worker_path = os.path.join(os.getcwd(), yaml_files.get('dask-worker') % iworker)
         # create worker yaml
-        scheduler_yaml = utilities.get_worker_yaml(image_source="palnilsson/dask-worker:latest",
-                                                   nfs_path="/mnt/dask",
-                                                   scheduler_ip=scheduler_ip,
-                                                   worker_name='dask-worker-%d' % iworker)
+        worker_yaml = utilities.get_worker_yaml(image_source="palnilsson/dask-worker:latest",
+                                                nfs_path="/mnt/dask",
+                                                scheduler_ip=scheduler_ip,
+                                                worker_name='dask-worker-%d' % iworker)
+        status = utilities.write_file(worker_path, worker_yaml, mute=False)
+        if not status:
+            logger.warning('cannot continue since yaml file could not be created')
+            exit(-1)
 
     #status = utilities.kubectl_delete(yaml=scheduler_path)
     exit(0)
