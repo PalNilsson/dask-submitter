@@ -184,7 +184,7 @@ def kubectl_execute(cmd=None, filename=None, pod=None, namespace=None):
     if not cmd:
         logger.warning('kubectl command not set not set')
         return None
-    if cmd not in ['create', 'delete', 'logs', 'get pods']:
+    if cmd not in ['create', 'delete', 'logs', 'get pods', 'config use-context']:
         logger.warning('unknown kubectl command: %s', cmd)
         return None
 
