@@ -152,17 +152,14 @@ def kubectl_execute(cmd=None, yaml=None, pod=None):
     if not cmd:
         logger.warning('kubectl command not set not set')
         return None
-    if not yaml and not pod:
-        logger.warning('neither yaml or pod specified')
-        return None
-    if cmd not in ['create', 'delete', 'logs']:
+    if cmd not in ['create', 'delete', 'logs', 'get pods']:
         logger.warning('unknown kubectl command: %s', cmd)
         return None
 
     if cmd in ['create', 'delete']:
         execmd = 'kubectl %s -f %s' % (cmd, yaml)
     else:
-        execmd = 'kubectl %s %s' % (cmd, pod)
+        execmd = 'kubectl %s %s' % (cmd, pod) if pod else 'kubectl %s' % cmd
 
     exitcode, stdout, stderr = execute(execmd)
 #    if exitcode and stderr.lower().startswith('error'):
@@ -510,3 +507,63 @@ def get_scheduler_ip(pod=None, timeout=120):
             now = time.time()
 
     return scheduler_ip
+
+
+def deploy_workers(scheduler_ip, _nworkers, yaml_files):
+    """
+    Deploy the worker pods and return a dictionary with the worker info.
+
+    worker_info = { worker_name_%d: yaml_path_%d, .. }
+
+    :param scheduler_ip: dask scheduler IP (string).
+    :param _nworkers: number of workers (int).
+    :param yaml_files: yaml files dictionary.
+    :return: worker info dictionary.
+    """
+
+    worker_info = {}
+    for _iworker in range(_nworkers):
+
+        worker_name = 'dask-worker-%d' % _iworker
+        worker_path = os.path.join(os.getcwd(), yaml_files.get('dask-worker') % _iworker)
+        worker_info[worker_name] = worker_path
+
+        # create worker yaml
+        worker_yaml = get_worker_yaml(image_source="palnilsson/dask-worker:latest",
+                                      nfs_path="/mnt/dask",
+                                      scheduler_ip=scheduler_ip,
+                                      worker_name=worker_name)
+        status = write_file(worker_path, worker_yaml, mute=False)
+        if not status:
+            logger.warning('cannot continue since yaml file could not be created')
+            return None
+
+        # start the worker pod
+        status, _ = kubectl_create(yaml=worker_path)
+        if not status:
+            return None
+
+        logger.info('deployed dask-worker-%d pod', _iworker)
+
+    return worker_info
+
+
+def await_worker_deployment(worker_info):
+    """
+    Wait for all workers to start running.
+
+    :param worker_info: worker info dictionary.
+    :return: True if all pods end up in Running state (Boolean).
+    """
+
+    # get the full pod info dictionary - note: not good if MANY workers
+    status, stdout = kubectl_execute(cmd='get pods')
+    if not status:
+        return False
+
+    dictionary = _convert_to_dict(stdout)
+    logger.info(str(dictionary))
+#    for worker_name in worker_info:
+#        pass
+
+    return True

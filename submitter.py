@@ -32,6 +32,8 @@ class DaskSubmitter(object):
     Dask submitter interface class.
     """
 
+    _nworkers = 1
+
     def __init__(self, **kwargs):
         """
         Init function.
@@ -39,7 +41,7 @@ class DaskSubmitter(object):
         :param kwargs:
         """
 
-        pass
+        self._nworkers = kwargs.get('nworkers', 1)
 
     def install(self, job_definition):
         """
@@ -136,6 +138,8 @@ class DaskSubmitter(object):
 
 if __name__ == '__main__':
 
+    # move this code to install()
+
     utilities.establish_logging()
     logging.info("*** Dask submitter ***")
     logging.info("Python version %s", sys.version)
@@ -168,26 +172,16 @@ if __name__ == '__main__':
         exit(-1)
     logger.info('using dask-scheduler IP: %s', scheduler_ip)
 
-    # loop over required workers
-    nworkers = 2
-    for iworker in range(nworkers):
-        # create worker yaml
-        worker_path = os.path.join(os.getcwd(), yaml_files.get('dask-worker') % iworker)
-        # create worker yaml
-        worker_yaml = utilities.get_worker_yaml(image_source="palnilsson/dask-worker:latest",
-                                                nfs_path="/mnt/dask",
-                                                scheduler_ip=scheduler_ip,
-                                                worker_name='dask-worker-%d' % iworker)
-        status = utilities.write_file(worker_path, worker_yaml, mute=False)
-        if not status:
-            logger.warning('cannot continue since yaml file could not be created')
-            exit(-1)
+    # deploy the worker pods
+    _nworkers = 2  # from Dask object..
+    worker_info = utilities.deploy_workers(scheduler_ip, _nworkers, yaml_files)
+    if not worker_info:
+        exit(-1)
 
-        # start the worker pod
-        status, _ = utilities.kubectl_create(yaml=worker_path)
-        if not status:
-            exit(-1)
-        logger.info('deployed dask-worker-%d pod', iworker)
+    # wait for the worker pods to start
+    status = utilities.await_worker_deployment(worker_info)
+    if not status:
+        exit(-1)
 
     #status = utilities.kubectl_delete(yaml=scheduler_path)
     now = time.time()
