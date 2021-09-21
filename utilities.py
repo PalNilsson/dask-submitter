@@ -13,6 +13,7 @@ import re
 import subprocess
 import sys
 import time
+from json import dump as dumpjson
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +54,35 @@ def establish_logging(debug=True, nopilotlog=False, filename="dasksubmitter.stdo
     console.setFormatter(logging.Formatter(format_str))
     logging.Formatter.converter = time.gmtime
     _logger.addHandler(console)
+
+
+def create_namespace(_namespace):
+    """
+    Create a namespace for this dask user.
+
+    :param _namespace: namespace (string).
+    :return: True if successful (Boolean).
+    """
+
+    namespace_dictionary = {
+        "apiVersion": "v1",
+        "kind": "Namespace",
+        "metadata":
+            {
+                "name": _namespace, "labels":
+                {
+                    "name": _namespace
+                }
+            }
+    }
+    filename = os.path.join(os.getcwd(), 'namespace.json')
+    status = write_json(filename, namespace_dictionary)
+    if not status:
+        return False
+
+    status, _ = kubectl_create(filename=filename)
+
+    return status
 
 
 def execute(executable, **kwargs):
@@ -97,32 +127,32 @@ def execute(executable, **kwargs):
         return exit_code, stdout, stderr
 
 
-def kubectl_create(yaml=None):
+def kubectl_create(filename=None):
     """
     Execute the kubectl create command for a given yaml file.
 
-    :param yaml: yaml file name (string).
+    :param filename: yaml or json file name (string).
     :return: True if success (Boolean).
     """
 
-    if not yaml:
+    if not filename:
         return None
 
-    return kubectl_execute(cmd='create', yaml=yaml)
+    return kubectl_execute(cmd='create', filename=filename)
 
 
-def kubectl_delete(yaml=None):
+def kubectl_delete(filename=None):
     """
     Execute the kubectl delete command for a given yaml file.
 
-    :param yaml: yaml file name (string).
+    :param filename: yaml file name (string).
     :return: True if success (Boolean).
     """
 
-    if not yaml:
+    if not filename:
         return None
 
-    return kubectl_execute(cmd='delete', yaml=yaml)
+    return kubectl_execute(cmd='delete', filename=filename)
 
 
 def kubectl_logs(pod=None):
@@ -139,12 +169,12 @@ def kubectl_logs(pod=None):
     return kubectl_execute(cmd='logs', pod=pod)
 
 
-def kubectl_execute(cmd=None, yaml=None, pod=None):
+def kubectl_execute(cmd=None, filename=None, pod=None):
     """
     Execute the kubectl create command for a given yaml file or pod name.
 
     :param cmd: kubectl command (string).
-    :param yaml: yaml file name (string).
+    :param filename: yaml or json file name (string).
     :param pod: pod name (string).
     :return: True if success, stdout (Boolean, string).
     """
@@ -157,7 +187,7 @@ def kubectl_execute(cmd=None, yaml=None, pod=None):
         return None
 
     if cmd in ['create', 'delete']:
-        execmd = 'kubectl %s -f %s' % (cmd, yaml)
+        execmd = 'kubectl %s -f %s' % (cmd, filename)
     else:
         execmd = 'kubectl %s %s' % (cmd, pod) if pod else 'kubectl %s' % cmd
 
@@ -271,6 +301,33 @@ def open_file(filename, mode):
         #raise FileHandlingFailure(exc)
 
     return f
+
+
+def write_json(filename, data, sort_keys=True, indent=4, separators=(',', ': ')):
+    """
+    Write the dictionary to a JSON file.
+
+    :param filename: file name (string).
+    :param data: object to be written to file (dictionary or list).
+    :param sort_keys: should entries be sorted? (boolean).
+    :param indent: indentation level, default 4 (int).
+    :param separators: field separators (default (',', ': ') for dictionaries, use e.g. (',\n') for lists) (tuple)
+    :raises PilotException: FileHandlingFailure.
+    :return: status (boolean).
+    """
+
+    status = False
+
+    try:
+        with open(filename, 'w') as fh:
+            dumpjson(data, fh, sort_keys=sort_keys, indent=indent, separators=separators)
+    except IOError as exc:
+        #raise FileHandlingFailure(exc)
+        logger.warning('caught exception: %s', exc)
+    else:
+        status = True
+
+    return status
 
 
 def write_file(path, contents, mute=True, mode='w', unique=False):
@@ -539,7 +596,7 @@ def deploy_workers(scheduler_ip, _nworkers, yaml_files):
             return None
 
         # start the worker pod
-        status, _ = kubectl_create(yaml=worker_path)
+        status, _ = kubectl_create(filename=worker_path)
         if not status:
             return None
 

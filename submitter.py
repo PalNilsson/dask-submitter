@@ -9,8 +9,10 @@
 
 import logging
 import os
+import random
 import sys
 import time
+from string import ascii_lowercase
 
 #try:
 #    # import dask
@@ -33,6 +35,7 @@ class DaskSubmitter(object):
     """
 
     _nworkers = 1
+    _namespace = ''
 
     def __init__(self, **kwargs):
         """
@@ -42,6 +45,7 @@ class DaskSubmitter(object):
         """
 
         self._nworkers = kwargs.get('nworkers', 1)
+        self._namespace = 'single-user-%s' % ''.join(random.choice(ascii_lowercase) for _ in range(5))
 
     def install(self, job_definition):
         """
@@ -152,6 +156,15 @@ if __name__ == '__main__':
         'dask-pilot': 'dask-pilot-deployment.yaml',
     }
 
+    # create unique name space
+    _namespace = 'single-user-%s' % ''.join(random.choice(ascii_lowercase) for _ in range(5))
+    status = utilities.create_namespace(_namespace)
+    if not status:
+        logger.warning('failed to create namespace: %s', _namespace)
+    else:
+        logger.info('created namespace: %s', _namespace)
+
+    exit(0)
     # create scheduler yaml
     scheduler_path = os.path.join(os.getcwd(), yaml_files.get('dask-scheduler'))
     scheduler_yaml = utilities.get_scheduler_yaml(image_source="palnilsson/dask-scheduler:latest", nfs_path="/mnt/dask")
@@ -161,7 +174,7 @@ if __name__ == '__main__':
         exit(-1)
 
     # start the dask scheduler pod
-    status, _ = utilities.kubectl_create(yaml=scheduler_path)
+    status, _ = utilities.kubectl_create(filename=scheduler_path)
     if not status:
         exit(-1)
     logger.info('deployed dask-scheduler pod')
@@ -183,7 +196,7 @@ if __name__ == '__main__':
     if not status:
         exit(-1)
 
-    #status = utilities.kubectl_delete(yaml=scheduler_path)
+    #status = utilities.kubectl_delete(filename=scheduler_path)
     now = time.time()
     logger.info('total running time: %d s', now - starttime)
     exit(0)
