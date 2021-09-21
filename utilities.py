@@ -56,11 +56,12 @@ def establish_logging(debug=True, nopilotlog=False, filename="dasksubmitter.stdo
     _logger.addHandler(console)
 
 
-def create_namespace(_namespace):
+def create_namespace(_namespace, filename):
     """
     Create a namespace for this dask user.
 
     :param _namespace: namespace (string).
+    :param filename: namespace json file name (string).
     :return: True if successful (Boolean).
     """
 
@@ -75,7 +76,7 @@ def create_namespace(_namespace):
                 }
             }
     }
-    filename = os.path.join(os.getcwd(), 'namespace.json')
+
     status = write_json(filename, namespace_dictionary)
     if not status:
         return False
@@ -169,13 +170,14 @@ def kubectl_logs(pod=None):
     return kubectl_execute(cmd='logs', pod=pod)
 
 
-def kubectl_execute(cmd=None, filename=None, pod=None):
+def kubectl_execute(cmd=None, filename=None, pod=None, namespace=None):
     """
     Execute the kubectl create command for a given yaml file or pod name.
 
     :param cmd: kubectl command (string).
     :param filename: yaml or json file name (string).
     :param pod: pod name (string).
+    :param namespace: namespace (string).
     :return: True if success, stdout (Boolean, string).
     """
 
@@ -188,6 +190,8 @@ def kubectl_execute(cmd=None, filename=None, pod=None):
 
     if cmd in ['create', 'delete']:
         execmd = 'kubectl %s -f %s' % (cmd, filename)
+    elif cmd == 'config use-context':
+        execmd = 'kubectl %s %s' % (cmd, namespace)
     else:
         execmd = 'kubectl %s %s' % (cmd, pod) if pod else 'kubectl %s' % cmd
 
