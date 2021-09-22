@@ -157,14 +157,27 @@ if __name__ == '__main__':
     }
 
     # create unique name space
-    #_namespace = 'single-user-%s' % ''.join(random.choice(ascii_lowercase) for _ in range(5))
-    #namespace_filename = os.path.join(os.getcwd(), 'namespace.json')
-    #status = utilities.create_namespace(_namespace, namespace_filename)
-    #if not status:
-    #    logger.warning('failed to create namespace: %s', _namespace)
-    #else:
-    #    logger.info('created namespace: %s', _namespace)
-    _namespace = "default"
+    _namespace = 'single-user-%s' % ''.join(random.choice(ascii_lowercase) for _ in range(5))
+    namespace_filename = os.path.join(os.getcwd(), 'namespace.json')
+    status = utilities.create_namespace(_namespace, namespace_filename)
+    if not status:
+        logger.warning('failed to create namespace: %s', _namespace)
+    else:
+        logger.info('created namespace: %s', _namespace)
+    #_namespace = "default"
+
+    # create PV
+    pv_path = os.path.join(os.path.join(os.getcwd(), 'pv.yaml'))
+    pv_yaml = utilities.get_pv_yaml(namespace=_namespace)
+    status = utilities.write_file(pv_path, pv_yaml)
+    if not status:
+        logger.warning('cannot continue since yaml file could not be created')
+        exit(-1)
+
+    #
+    status, _ = utilities.kubectl_create(filename=pv_path)
+    if not status:
+        exit(-1)
 
     # switch context for the new namespace
     #status = utilities.kubectl_execute(cmd='config use-context', namespace=_namespace)

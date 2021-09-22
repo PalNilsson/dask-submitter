@@ -391,6 +391,36 @@ def write_file(path, contents, mute=True, mode='w', unique=False):
     return status
 
 
+def get_pv_yaml(namespace=None):
+    """
+
+    :param namespace:
+    :return:
+    """
+
+    if not namespace:
+        logger.warning('namespace must be set')
+        return ""
+
+    yaml = """
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: fileserver
+  namespace: CHANGE_NAMESPACE
+spec:
+  capacity:
+    storage: 200Gi
+  accessModes:
+    - ReadWriteMany
+  nfs:
+    server: 10.226.152.66
+    path: "/vol1"
+"""
+
+    return yaml.replace('CHANGE_NAMESPACE', namespace)
+
+
 def get_scheduler_yaml(image_source="", nfs_path="", namespace=""):
     """
     Return the yaml for the Dask scheduler for a given image and the path to the shared file system.
