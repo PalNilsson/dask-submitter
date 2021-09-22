@@ -287,7 +287,11 @@ if __name__ == '__main__':
         exit(-1)
 
     # wait for the worker pods to start
-    status = utilities.await_worker_deployment(worker_info, namespace)
+    try:
+        status = utilities.await_worker_deployment(worker_info, namespace)
+    except Exception as exc:
+        logger.warning('caught exception: %s', exc)
+        status = False
     if not status:
         cleanup(namespace=namespace, user_id=user_id, pvc=True, pv=True)
         exit(-1)
