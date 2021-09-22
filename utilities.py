@@ -212,7 +212,7 @@ def kubectl_execute(cmd=None, filename=None, pod=None, namespace=None):
     else:
         execmd = 'kubectl %s %s' % (cmd, pod) if pod else 'kubectl %s' % cmd
 
-    if cmd == 'get pods':
+    if cmd in ['get pods', 'logs']:
         execmd += ' --namespace=%s' % namespace
 
     logger.debug('executing: %s', execmd)
