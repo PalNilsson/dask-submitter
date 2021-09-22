@@ -220,7 +220,7 @@ if __name__ == '__main__':
     logger.info('deployed dask-scheduler pod')
 
     # extract scheduler IP from stdout (when available)
-    scheduler_ip = utilities.get_scheduler_ip(pod='dask-scheduler')
+    scheduler_ip = utilities.get_scheduler_ip(pod='dask-scheduler', namespace=_namespace)
     if not scheduler_ip:
         exit(-1)
     logger.info('using dask-scheduler IP: %s', scheduler_ip)

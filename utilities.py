@@ -105,8 +105,6 @@ def execute(executable, **kwargs):
     returnproc = kwargs.get('returnproc', False)
     job = kwargs.get('job')
 
-    logger.debug('execute: %s', executable)
-
     # convert executable to string if it is a list
     if type(executable) is list:
         executable = ' '.join(executable)
@@ -172,18 +170,21 @@ def kubectl_delete(filename=None):
     return kubectl_execute(cmd='delete', filename=filename)
 
 
-def kubectl_logs(pod=None):
+def kubectl_logs(pod=None, namespace=None):
     """
     Execute the kubectl logs command for a given pod name.
 
     :param pod: pod name (string).
+    :param namespace: namespace (string).
     :return: stdout logs (string).
     """
 
     if not pod:
         return None
+    if not namespace:
+        return None
 
-    return kubectl_execute(cmd='logs', pod=pod)
+    return kubectl_execute(cmd='logs', pod=pod, namespace=namespace)
 
 
 def kubectl_execute(cmd=None, filename=None, pod=None, namespace=None):
@@ -646,12 +647,13 @@ spec:
     return yaml
 
 
-def get_scheduler_ip(pod=None, timeout=480):
+def get_scheduler_ip(pod=None, timeout=480, namespace=None):
     """
     Wait for the scheduler to start, then grab the scheduler IP from the stdout.
 
     :param pod: pod name (string).
     :param timeout: time-out (integer).
+    :param namespace: namespace (string).
     :return: scheduler IP (string).
     """
 
@@ -667,7 +669,7 @@ def get_scheduler_ip(pod=None, timeout=480):
     first = True
     while (now - starttime < timeout):
         # get the scheduler stdout
-        status, stdout = kubectl_logs(pod=pod)
+        status, stdout = kubectl_logs(pod=pod, namespace=namespace)
         if not status or not stdout:
             logger.warning('failed to extract scheduler IP from kubectl logs command')
             return scheduler_ip
