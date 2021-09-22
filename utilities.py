@@ -394,8 +394,9 @@ def write_file(path, contents, mute=True, mode='w', unique=False):
 def get_pv_yaml(namespace=None, user_id=None):
     """
 
-    :param namespace:
-    :return:
+    :param namespace: namespace (string).
+    :param user_id: user id (string).
+    :return: yaml (string).
     """
 
     if not namespace:
@@ -427,13 +428,14 @@ spec:
     return yaml
 
 
-def get_scheduler_yaml(image_source="", nfs_path="", namespace=""):
+def get_scheduler_yaml(image_source=None, nfs_path=None, namespace=None, user_id=None):
     """
     Return the yaml for the Dask scheduler for a given image and the path to the shared file system.
 
     :param image_source: image source (string).
     :param nfs_path: NFS path (string).
     :param namespace: namespace (string).
+    :param user_id: user id (string).
     :return: yaml (string).
     """
 
@@ -445,6 +447,9 @@ def get_scheduler_yaml(image_source="", nfs_path="", namespace=""):
         return ""
     if not namespace:
         logger.warning('namespace must be set')
+        return ""
+    if not user_id:
+        logger.warning('user id must be set')
         return ""
 
     yaml = """
@@ -460,9 +465,9 @@ spec:
     image: CHANGE_IMAGE_SOURCE
     volumeMounts:
     - mountPath: CHANGE_NFS_PATH
-      name: fileserver
+      name: fileserver-CHANGE_USERID
   volumes:
-  - name: fileserver
+  - name: fileserver-CHANGE_USERID
     persistentVolumeClaim:
       claimName: fileserver-claim
       readOnly: false
@@ -471,11 +476,12 @@ spec:
     yaml = yaml.replace('CHANGE_IMAGE_SOURCE', image_source)
     yaml = yaml.replace('CHANGE_NFS_PATH', nfs_path)
     yaml = yaml.replace('CHANGE_NAMESPACE', namespace)
+    yaml = yaml.replace('CHANGE_USERID', user_id)
 
     return yaml
 
 
-def get_worker_yaml(image_source="", nfs_path="", scheduler_ip="", worker_name="", namespace=""):
+def get_worker_yaml(image_source=None, nfs_path=None, scheduler_ip=None, worker_name=None, namespace=None, user_id=None):
     """
     Return the yaml for the Dask worker for a given image, path to the shared file system and Dask scheduler IP.
 
@@ -485,6 +491,7 @@ def get_worker_yaml(image_source="", nfs_path="", scheduler_ip="", worker_name="
     :param scheduler_ip: dask scheduler IP (string).
     :param worker_name: dask worker name (string).
     :param namespace: namespace (string).
+    :param user_id: user id (string).
     :return: yaml (string).
     """
 
@@ -502,6 +509,9 @@ def get_worker_yaml(image_source="", nfs_path="", scheduler_ip="", worker_name="
         return ""
     if not namespace:
         logger.warning('namespace must be set')
+        return ""
+    if not user_id:
+        logger.warning('user id must be set')
         return ""
 
 # image_source=palnilsson/dask-worker:latest
@@ -524,9 +534,9 @@ spec:
       value: CHANGE_NFS_PATH
     volumeMounts:
     - mountPath: CHANGE_NFS_PATH
-      name: fileserver
+      name: fileserver-CHANGE_USERID
   volumes:
-  - name: fileserver
+  - name: fileserver-CHANGE_USERID
     persistentVolumeClaim:
       claimName: fileserver-claim
       readOnly: false
@@ -537,6 +547,7 @@ spec:
     yaml = yaml.replace('CHANGE_NFS_PATH', nfs_path)
     yaml = yaml.replace('CHANGE_WORKER_NAME', worker_name)
     yaml = yaml.replace('CHANGE_NAMESPACE', namespace)
+    yaml = yaml.replace('CHANGE_USERID', user_id)
 
     return yaml
 
@@ -642,7 +653,7 @@ def get_scheduler_ip(pod=None, timeout=120):
     return scheduler_ip
 
 
-def deploy_workers(scheduler_ip, _nworkers, yaml_files, namespace):
+def deploy_workers(scheduler_ip, _nworkers, yaml_files, namespace, user_id):
     """
     Deploy the worker pods and return a dictionary with the worker info.
 
@@ -652,6 +663,7 @@ def deploy_workers(scheduler_ip, _nworkers, yaml_files, namespace):
     :param _nworkers: number of workers (int).
     :param yaml_files: yaml files dictionary.
     :param namespace: namespace (string).
+    :param user_id: user id (string).
     :return: worker info dictionary.
     """
 
@@ -667,7 +679,8 @@ def deploy_workers(scheduler_ip, _nworkers, yaml_files, namespace):
                                       nfs_path="/mnt/dask",
                                       scheduler_ip=scheduler_ip,
                                       worker_name=worker_name,
-                                      namespace=namespace)
+                                      namespace=namespace,
+                                      user_id=user_id)
         status = write_file(worker_path, worker_yaml, mute=False)
         if not status:
             logger.warning('cannot continue since yaml file could not be created')

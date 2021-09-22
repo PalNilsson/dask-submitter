@@ -157,8 +157,8 @@ if __name__ == '__main__':
     }
 
     # create unique name space
-    _id = ''.join(random.choice(ascii_lowercase) for _ in range(5))
-    _namespace = 'single-user-%s' % _id
+    user_id = ''.join(random.choice(ascii_lowercase) for _ in range(5))
+    _namespace = 'single-user-%s' % user_id
     namespace_filename = os.path.join(os.getcwd(), 'namespace.json')
     status = utilities.create_namespace(_namespace, namespace_filename)
     if not status:
@@ -169,7 +169,7 @@ if __name__ == '__main__':
 
     # create PV
     pv_path = os.path.join(os.path.join(os.getcwd(), 'pv.yaml'))
-    pv_yaml = utilities.get_pv_yaml(namespace=_namespace, user_id=_id)
+    pv_yaml = utilities.get_pv_yaml(namespace=_namespace, user_id=user_id)
     status = utilities.write_file(pv_path, pv_yaml)
     if not status:
         logger.warning('cannot continue since yaml file could not be created')
@@ -193,7 +193,8 @@ if __name__ == '__main__':
     scheduler_path = os.path.join(os.getcwd(), yaml_files.get('dask-scheduler'))
     scheduler_yaml = utilities.get_scheduler_yaml(image_source="palnilsson/dask-scheduler:latest",
                                                   nfs_path="/mnt/dask",
-                                                  namespace=_namespace)
+                                                  namespace=_namespace,
+                                                  user_id=user_id)
     status = utilities.write_file(scheduler_path, scheduler_yaml, mute=False)
     if not status:
         logger.warning('cannot continue since yaml file could not be created')
