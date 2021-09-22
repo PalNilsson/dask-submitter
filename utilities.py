@@ -740,23 +740,57 @@ def deploy_workers(scheduler_ip, _nworkers, yaml_files, namespace, user_id):
     return worker_info
 
 
-def await_worker_deployment(worker_info, namespace):
+def await_worker_deployment(worker_info, namespace, timeout=120):
     """
     Wait for all workers to start running.
 
     :param worker_info: worker info dictionary.
     :param namespace: namespace (string).
+    :param timeout: time-out (int).
     :return: True if all pods end up in Running state (Boolean).
     """
 
-    # get the full pod info dictionary - note: not good if MANY workers
-    status, stdout = kubectl_execute(cmd='get pods', namespace=namespace)
-    if not status:
-        return False
+    running_workers = []
 
-    dictionary = _convert_to_dict(stdout)
-    logger.info(str(dictionary))
-#    for worker_name in worker_info:
-#        pass
+    starttime = time.time()
+    now = starttime
+    _state = None
+    _sleep = 5
+    processing = True
+    status = True
+    while processing and (now - starttime < timeout):
 
-    return True
+        # get the full pod info dictionary - note: not good if MANY workers
+        status, stdout = kubectl_execute(cmd='get pods', namespace=namespace)
+        if not status:
+            break
+
+        dictionary = _convert_to_dict(stdout)
+
+        # get list of workers and get rid of the scheduler and workers that are already known to be running
+        workers_list = list(dictionary.keys())
+        workers_list.remove('dask-scheduler')
+        for running_worker in running_workers:
+            workers_list.remove(running_worker)
+
+        # check the states
+        for worker_name in workers_list:
+            # is the worker in Running state?
+            try:
+                state = dictionary[worker_name]['STATUS']
+            except Exception as exc:
+                logger.warning('caught exception: %s', exc)
+            else:
+                if state == 'Running':
+                    running_workers.append(worker_name)
+        if len(running_workers) == list(dictionary.keys()) - 1:
+            logger.info('all workers are running')
+            processing = False
+        else:
+            time.sleep(_sleep)
+            now = time.time()
+
+        logger.debug('workers_list=%s', str(workers_list))
+        logger.debug('running_workers=%s', str(running_workers))
+
+    return status
