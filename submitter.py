@@ -157,7 +157,8 @@ if __name__ == '__main__':
     }
 
     # create unique name space
-    _namespace = 'single-user-%s' % ''.join(random.choice(ascii_lowercase) for _ in range(5))
+    _id = ''.join(random.choice(ascii_lowercase) for _ in range(5))
+    _namespace = 'single-user-%s' % _id
     namespace_filename = os.path.join(os.getcwd(), 'namespace.json')
     status = utilities.create_namespace(_namespace, namespace_filename)
     if not status:
@@ -168,7 +169,7 @@ if __name__ == '__main__':
 
     # create PV
     pv_path = os.path.join(os.path.join(os.getcwd(), 'pv.yaml'))
-    pv_yaml = utilities.get_pv_yaml(namespace=_namespace)
+    pv_yaml = utilities.get_pv_yaml(namespace=_namespace, user_id=_id)
     status = utilities.write_file(pv_path, pv_yaml)
     if not status:
         logger.warning('cannot continue since yaml file could not be created')

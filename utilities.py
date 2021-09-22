@@ -391,7 +391,7 @@ def write_file(path, contents, mute=True, mode='w', unique=False):
     return status
 
 
-def get_pv_yaml(namespace=None):
+def get_pv_yaml(namespace=None, user_id=None):
     """
 
     :param namespace:
@@ -401,12 +401,15 @@ def get_pv_yaml(namespace=None):
     if not namespace:
         logger.warning('namespace must be set')
         return ""
+    if not user_id:
+        logger.warning('user id must be set')
+        return ""
 
     yaml = """
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: fileserver
+  name: fileserver-CHANGE_USERID
   namespace: CHANGE_NAMESPACE
 spec:
   capacity:
@@ -418,7 +421,10 @@ spec:
     path: "/vol1"
 """
 
-    return yaml.replace('CHANGE_NAMESPACE', namespace)
+    yaml = yaml.replace('CHANGE_USERID', user_id)
+    yaml = yaml.replace('CHANGE_NAMESPACE', namespace)
+
+    return yaml
 
 
 def get_scheduler_yaml(image_source="", nfs_path="", namespace=""):
