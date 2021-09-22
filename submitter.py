@@ -203,49 +203,49 @@ if __name__ == '__main__':
 
     # create unique name space
     user_id = ''.join(random.choice(ascii_lowercase) for _ in range(5))
-    _namespace = 'single-user-%s' % user_id
+    namespace = 'single-user-%s' % user_id
     namespace_filename = os.path.join(os.getcwd(), 'namespace.json')
-    status = utilities.create_namespace(_namespace, namespace_filename)
+    status = utilities.create_namespace(namespace, namespace_filename)
     if not status:
-        logger.warning('failed to create namespace: %s', _namespace)
+        logger.warning('failed to create namespace: %s', namespace)
         cleanup()
         exit(-1)
     else:
-        logger.info('created namespace: %s', _namespace)
-    #_namespace = "default"
+        logger.info('created namespace: %s', namespace)
+    #namespace = "default"
 
     # create PVC
     pvc_path = os.path.join(os.path.join(os.getcwd(), 'pvc.yaml'))
-    pvc_yaml = utilities.get_pvc_yaml(namespace=_namespace, user_id=user_id)
+    pvc_yaml = utilities.get_pvc_yaml(namespace=namespace, user_id=user_id)
     status = utilities.write_file(pvc_path, pvc_yaml)
     if not status:
         logger.warning('cannot continue since yaml file could not be created')
-        cleanup(namespace=_namespace, user_id=user_id)
+        cleanup(namespace=namespace, user_id=user_id)
         exit(-1)
 
     #
     status, _ = utilities.kubectl_create(filename=pvc_path)
     if not status:
-        cleanup(namespace=_namespace, user_id=user_id)
+        cleanup(namespace=namespace, user_id=user_id)
         exit(-1)
 
     # create PV
     pv_path = os.path.join(os.path.join(os.getcwd(), 'pv.yaml'))
-    pv_yaml = utilities.get_pv_yaml(namespace=_namespace, user_id=user_id)
+    pv_yaml = utilities.get_pv_yaml(namespace=namespace, user_id=user_id)
     status = utilities.write_file(pv_path, pv_yaml)
     if not status:
         logger.warning('cannot continue since yaml file could not be created')
-        cleanup(namespace=_namespace, user_id=user_id, pvc=True)
+        cleanup(namespace=namespace, user_id=user_id, pvc=True)
         exit(-1)
 
     #
     status, _ = utilities.kubectl_create(filename=pv_path)
     if not status:
-        cleanup(namespace=_namespace, user_id=user_id, pvc=True)
+        cleanup(namespace=namespace, user_id=user_id, pvc=True)
         exit(-1)
 
     # switch context for the new namespace
-    #status = utilities.kubectl_execute(cmd='config use-context', namespace=_namespace)
+    #status = utilities.kubectl_execute(cmd='config use-context', namespace=namespace)
 
     # switch context for the new namespace
     #status = utilities.kubectl_execute(cmd='config use-context', namespace='default')
@@ -257,51 +257,51 @@ if __name__ == '__main__':
     scheduler_path = os.path.join(os.getcwd(), yaml_files.get('dask-scheduler'))
     scheduler_yaml = utilities.get_scheduler_yaml(image_source="palnilsson/dask-scheduler:latest",
                                                   nfs_path="/mnt/dask",
-                                                  namespace=_namespace,
+                                                  namespace=namespace,
                                                   user_id=user_id)
     status = utilities.write_file(scheduler_path, scheduler_yaml, mute=False)
     if not status:
         logger.warning('cannot continue since yaml file could not be created')
-        cleanup(namespace=_namespace, user_id=user_id, pvc=True, pv=True)
+        cleanup(namespace=namespace, user_id=user_id, pvc=True, pv=True)
         exit(-1)
 
     # start the dask scheduler pod
     status, _ = utilities.kubectl_create(filename=scheduler_path)
     if not status:
-        cleanup(namespace=_namespace, user_id=user_id, pvc=True, pv=True)
+        cleanup(namespace=namespace, user_id=user_id, pvc=True, pv=True)
         exit(-1)
     logger.info('deployed dask-scheduler pod')
 
     # extract scheduler IP from stdout (when available)
-    scheduler_ip = utilities.get_scheduler_ip(pod='dask-scheduler', namespace=_namespace)
+    scheduler_ip = utilities.get_scheduler_ip(pod='dask-scheduler', namespace=namespace)
     if not scheduler_ip:
-        cleanup(namespace=_namespace, user_id=user_id, pvc=True, pv=True)
+        cleanup(namespace=namespace, user_id=user_id, pvc=True, pv=True)
         exit(-1)
     logger.info('using dask-scheduler IP: %s', scheduler_ip)
 
     # deploy the worker pods
     _nworkers = 2  # from Dask object..
-    worker_info = utilities.deploy_workers(scheduler_ip, _nworkers, yaml_files, _namespace)
+    worker_info = utilities.deploy_workers(scheduler_ip, _nworkers, yaml_files, namespace, user_id)
     if not worker_info:
-        cleanup(namespace=_namespace, user_id=user_id, pvc=True, pv=True)
+        cleanup(namespace=namespace, user_id=user_id, pvc=True, pv=True)
         exit(-1)
 
     # wait for the worker pods to start
-    status = utilities.await_worker_deployment(worker_info, _namespace)
+    status = utilities.await_worker_deployment(worker_info, namespace)
     if not status:
-        cleanup(namespace=_namespace, user_id=user_id, pvc=True, pv=True)
+        cleanup(namespace=namespace, user_id=user_id, pvc=True, pv=True)
         exit(-1)
 
     #status = utilities.kubectl_delete(filename=scheduler_path)
     now = time.time()
     logger.info('total running time: %d s', now - starttime)
-    cleanup(namespace=_namespace, user_id=user_id, pvc=True, pv=True)
+    cleanup(namespace=namespace, user_id=user_id, pvc=True, pv=True)
     exit(0)
 
     pod = 'dask-pilot'
     status = utilities.wait_until_deployment(pod=pod, state='Running')
     if not status:
-        cleanup(namespace=_namespace, user_id=user_id, pvc=True, pv=True)
+        cleanup(namespace=namespace, user_id=user_id, pvc=True, pv=True)
         exit(-1)
     else:
         logger.info('pod %s is running', pod)
@@ -309,5 +309,5 @@ if __name__ == '__main__':
     # extract scheduler IP from stdout (when available)
     # ..
 
-    cleanup(namespace=_namespace, user_id=user_id, pvc=True, pv=True)
+    cleanup(namespace=namespace, user_id=user_id, pvc=True, pv=True)
     exit(0)
