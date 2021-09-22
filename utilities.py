@@ -105,6 +105,8 @@ def execute(executable, **kwargs):
     returnproc = kwargs.get('returnproc', False)
     job = kwargs.get('job')
 
+    logger.debug('execute: %s', executable)
+
     # convert executable to string if it is a list
     if type(executable) is list:
         executable = ' '.join(executable)
