@@ -209,6 +209,7 @@ def kubectl_execute(cmd=None, filename=None, pod=None, namespace=None):
     else:
         execmd = 'kubectl %s %s' % (cmd, pod) if pod else 'kubectl %s' % cmd
 
+    logger.debug('executing: %s', execmd)
     exitcode, stdout, stderr = execute(execmd)
 #    if exitcode and stderr.lower().startswith('error'):
     if exitcode and stderr:
