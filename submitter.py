@@ -157,13 +157,14 @@ if __name__ == '__main__':
     }
 
     # create unique name space
-    _namespace = 'single-user-%s' % ''.join(random.choice(ascii_lowercase) for _ in range(5))
-    namespace_filename = os.path.join(os.getcwd(), 'namespace.json')
-    status = utilities.create_namespace(_namespace, namespace_filename)
-    if not status:
-        logger.warning('failed to create namespace: %s', _namespace)
-    else:
-        logger.info('created namespace: %s', _namespace)
+    #_namespace = 'single-user-%s' % ''.join(random.choice(ascii_lowercase) for _ in range(5))
+    #namespace_filename = os.path.join(os.getcwd(), 'namespace.json')
+    #status = utilities.create_namespace(_namespace, namespace_filename)
+    #if not status:
+    #    logger.warning('failed to create namespace: %s', _namespace)
+    #else:
+    #    logger.info('created namespace: %s', _namespace)
+    _namespace = "default"
 
     # switch context for the new namespace
     #status = utilities.kubectl_execute(cmd='config use-context', namespace=_namespace)
