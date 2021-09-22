@@ -140,7 +140,7 @@ class DaskSubmitter(object):
         return status
 
 
-def cleanup(namespace, user_id):
+def cleanup(namespace=None, user_id=None, pvc=False, pv=False):
     """
     General cleanup.
 
@@ -149,24 +149,37 @@ def cleanup(namespace, user_id):
     :return:
     """
 
-    cmd = 'kubectl patch pvc fileserver-claim -p \'{\"metadata\": {\"finalizers\": null}}\''
-    ec, stdout, stderr = utilities.execute(cmd)
-    logger.debug(stdout)
-    cmd = 'kubectl delete pvc fileserver-claim --namespace=%s' % namespace
-    ec, stdout, stderr = utilities.execute(cmd)
-    logger.debug(stdout)
-    cmd = 'kubectl patch pv fileserver-%d -p \'{\"metadata\": {\"finalizers\": null}}\'' % user_id
-    ec, stdout, stderr = utilities.execute(cmd)
-    logger.debug(stdout)
-    cmd = 'kubectl delete pv fileserver-%d' % user_id
-    ec, stdout, stderr = utilities.execute(cmd)
-    logger.debug(stdout)
-    cmd = 'kubectl delete -all pods --namespace=%s' % namespace
-    ec, stdout, stderr = utilities.execute(cmd)
-    logger.debug(stdout)
-    cmd = 'kubectl delete namespaces %s' % namespace
-    ec, stdout, stderr = utilities.execute(cmd)
-    logger.debug(stdout)
+    if pvc:
+        cmd = 'kubectl patch pvc fileserver-claim -p \'{\"metadata\": {\"finalizers\": null}}\''
+        logger.debug('executing: %s', cmd)
+        ec, stdout, stderr = utilities.execute(cmd)
+        logger.debug(stdout)
+        cmd = 'kubectl delete pvc fileserver-claim --namespace=%s' % namespace
+        logger.debug('executing: %s', cmd)
+        ec, stdout, stderr = utilities.execute(cmd)
+        logger.debug(stdout)
+    if pv:
+        cmd = 'kubectl patch pv fileserver-%d -p \'{\"metadata\": {\"finalizers\": null}}\'' % user_id
+        logger.debug('executing: %s', cmd)
+        ec, stdout, stderr = utilities.execute(cmd)
+        logger.debug(stdout)
+        cmd = 'kubectl delete pv fileserver-%d' % user_id
+        logger.debug('executing: %s', cmd)
+        ec, stdout, stderr = utilities.execute(cmd)
+        logger.debug(stdout)
+
+    if namespace:
+        cmd = 'kubectl delete -all pods --namespace=%s' % namespace
+        logger.debug('executing: %s', cmd)
+        ec, stdout, stderr = utilities.execute(cmd)
+        logger.debug(stdout)
+        cmd = 'kubectl delete namespaces %s' % namespace
+        logger.debug('executing: %s', cmd)
+        ec, stdout, stderr = utilities.execute(cmd)
+        logger.debug(stdout)
+
+    # terminate logging
+    # ..
 
 
 if __name__ == '__main__':
@@ -192,6 +205,8 @@ if __name__ == '__main__':
     status = utilities.create_namespace(_namespace, namespace_filename)
     if not status:
         logger.warning('failed to create namespace: %s', _namespace)
+        cleanup()
+        exit(-1)
     else:
         logger.info('created namespace: %s', _namespace)
     #_namespace = "default"
@@ -202,12 +217,13 @@ if __name__ == '__main__':
     status = utilities.write_file(pvc_path, pvc_yaml)
     if not status:
         logger.warning('cannot continue since yaml file could not be created')
+        cleanup(namespace=_namespace, user_id=user_id)
         exit(-1)
 
     #
     status, _ = utilities.kubectl_create(filename=pvc_path)
     if not status:
-        cleanup(_namespace, user_id)
+        cleanup(namespace=_namespace, user_id=user_id)
         exit(-1)
 
     # create PV
@@ -216,13 +232,13 @@ if __name__ == '__main__':
     status = utilities.write_file(pv_path, pv_yaml)
     if not status:
         logger.warning('cannot continue since yaml file could not be created')
-        cleanup(_namespace, user_id)
+        cleanup(namespace=_namespace, user_id=user_id, pvc=True)
         exit(-1)
 
     #
     status, _ = utilities.kubectl_create(filename=pv_path)
     if not status:
-        cleanup(_namespace, user_id)
+        cleanup(namespace=_namespace, user_id=user_id, pvc=True)
         exit(-1)
 
     # switch context for the new namespace
@@ -243,20 +259,20 @@ if __name__ == '__main__':
     status = utilities.write_file(scheduler_path, scheduler_yaml, mute=False)
     if not status:
         logger.warning('cannot continue since yaml file could not be created')
-        cleanup(_namespace, user_id)
+        cleanup(namespace=_namespace, user_id=user_id, pvc=True, pv=True)
         exit(-1)
 
     # start the dask scheduler pod
     status, _ = utilities.kubectl_create(filename=scheduler_path)
     if not status:
-        cleanup(_namespace, user_id)
+        cleanup(namespace=_namespace, user_id=user_id, pvc=True, pv=True)
         exit(-1)
     logger.info('deployed dask-scheduler pod')
 
     # extract scheduler IP from stdout (when available)
     scheduler_ip = utilities.get_scheduler_ip(pod='dask-scheduler', namespace=_namespace)
     if not scheduler_ip:
-        cleanup(_namespace, user_id)
+        cleanup(namespace=_namespace, user_id=user_id, pvc=True, pv=True)
         exit(-1)
     logger.info('using dask-scheduler IP: %s', scheduler_ip)
 
@@ -264,25 +280,25 @@ if __name__ == '__main__':
     _nworkers = 2  # from Dask object..
     worker_info = utilities.deploy_workers(scheduler_ip, _nworkers, yaml_files, _namespace)
     if not worker_info:
-        cleanup(_namespace, user_id)
+        cleanup(namespace=_namespace, user_id=user_id, pvc=True, pv=True)
         exit(-1)
 
     # wait for the worker pods to start
     status = utilities.await_worker_deployment(worker_info, _namespace)
     if not status:
-        cleanup(_namespace, user_id)
+        cleanup(namespace=_namespace, user_id=user_id, pvc=True, pv=True)
         exit(-1)
 
     #status = utilities.kubectl_delete(filename=scheduler_path)
     now = time.time()
     logger.info('total running time: %d s', now - starttime)
-    cleanup(_namespace, user_id)
+    cleanup(namespace=_namespace, user_id=user_id, pvc=True, pv=True)
     exit(0)
 
     pod = 'dask-pilot'
     status = utilities.wait_until_deployment(pod=pod, state='Running')
     if not status:
-        cleanup(_namespace, user_id)
+        cleanup(namespace=_namespace, user_id=user_id, pvc=True, pv=True)
         exit(-1)
     else:
         logger.info('pod %s is running', pod)
@@ -290,5 +306,5 @@ if __name__ == '__main__':
     # extract scheduler IP from stdout (when available)
     # ..
 
-    cleanup(_namespace, user_id)
+    cleanup(namespace=_namespace, user_id=user_id, pvc=True, pv=True)
     exit(0)
