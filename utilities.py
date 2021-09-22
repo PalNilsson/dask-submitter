@@ -644,7 +644,7 @@ spec:
     return yaml
 
 
-def get_scheduler_ip(pod=None, timeout=120):
+def get_scheduler_ip(pod=None, timeout=480):
     """
     Wait for the scheduler to start, then grab the scheduler IP from the stdout.
 
