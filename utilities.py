@@ -81,7 +81,7 @@ def create_namespace(_namespace, filename):
     if not status:
         return False
 
-    status, _ = kubectl_create(filename=filename)
+    status, _ = kubectl_apply(filename=filename)
 
     return status
 
@@ -142,6 +142,20 @@ def kubectl_create(filename=None):
     return kubectl_execute(cmd='create', filename=filename)
 
 
+def kubectl_apply(filename=None):
+    """
+    Execute the kubectl apply command for a given yaml or json file.
+
+    :param filename: yaml or json file name (string).
+    :return: True if success (Boolean).
+    """
+
+    if not filename:
+        return None
+
+    return kubectl_execute(cmd='apply', filename=filename)
+
+
 def kubectl_delete(filename=None):
     """
     Execute the kubectl delete command for a given yaml file.
@@ -184,11 +198,11 @@ def kubectl_execute(cmd=None, filename=None, pod=None, namespace=None):
     if not cmd:
         logger.warning('kubectl command not set not set')
         return None
-    if cmd not in ['create', 'delete', 'logs', 'get pods', 'config use-context']:
+    if cmd not in ['create', 'delete', 'logs', 'get pods', 'config use-context', 'apply']:
         logger.warning('unknown kubectl command: %s', cmd)
         return None
 
-    if cmd in ['create', 'delete']:
+    if cmd in ['create', 'delete', 'apply']:
         execmd = 'kubectl %s -f %s' % (cmd, filename)
     elif cmd == 'config use-context':
         execmd = 'kubectl %s %s' % (cmd, namespace)
