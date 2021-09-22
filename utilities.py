@@ -227,7 +227,7 @@ def kubectl_execute(cmd=None, filename=None, pod=None, namespace=None):
     return status, stdout
 
 
-def wait_until_deployment(pod=None, state=None, timeout=120):
+def wait_until_deployment(pod=None, state=None, timeout=120, namespace=None):
     """
     Wait until a given pod is in running state.
 
@@ -237,6 +237,7 @@ def wait_until_deployment(pod=None, state=None, timeout=120):
     :param pod: pod name (string).
     :param state: required status (string).
     :param timeout: time-out (integer).
+    :param namespace: namespace (string).
     :return: True if pod reaches given state before given time-out (Boolean).
     """
 
@@ -251,7 +252,7 @@ def wait_until_deployment(pod=None, state=None, timeout=120):
     processing = True
     while processing and (now - starttime < timeout):
 
-        exitcode, stdout, stderr = execute("kubectl get pod %s" % pod)
+        exitcode, stdout, stderr = execute("kubectl get pod %s --namespace=%s" % (pod, namespace))
         if stderr and stderr.lower().startswith('error:'):
             logger.warning('failed:\n%s', stderr)
             break
@@ -659,7 +660,7 @@ def get_scheduler_ip(pod=None, timeout=480, namespace=None):
 
     scheduler_ip = ""
 
-    status = wait_until_deployment(pod=pod, state='Running', timeout=120)
+    status = wait_until_deployment(pod=pod, state='Running', timeout=120, namespace=namespace)
     if not status:
         return scheduler_ip
 

@@ -164,6 +164,7 @@ def cleanup(namespace=None, user_id=None, pvc=False, pv=False):
         logger.debug('executing: %s', cmd)
         ec, stdout, stderr = utilities.execute(cmd)
         logger.debug(stdout)
+
     if pv:
         cmd = 'kubectl patch pv fileserver-%s -p \'{\"metadata\": {\"finalizers\": null}}\'' % user_id
         logger.debug('executing: %s', cmd)
