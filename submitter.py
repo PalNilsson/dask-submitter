@@ -149,6 +149,12 @@ def cleanup(namespace=None, user_id=None, pvc=False, pv=False):
     :return:
     """
 
+    if namespace:
+        cmd = 'kubectl delete --all pods --namespace=%s' % namespace
+        logger.debug('executing: %s', cmd)
+        ec, stdout, stderr = utilities.execute(cmd)
+        logger.debug(stdout)
+
     if pvc:
         cmd = 'kubectl patch pvc fileserver-claim -p \'{\"metadata\": {\"finalizers\": null}}\''
         logger.debug('executing: %s', cmd)
@@ -169,10 +175,6 @@ def cleanup(namespace=None, user_id=None, pvc=False, pv=False):
         logger.debug(stdout)
 
     if namespace:
-        cmd = 'kubectl delete -all pods --namespace=%s' % namespace
-        logger.debug('executing: %s', cmd)
-        ec, stdout, stderr = utilities.execute(cmd)
-        logger.debug(stdout)
         cmd = 'kubectl delete namespaces %s' % namespace
         logger.debug('executing: %s', cmd)
         ec, stdout, stderr = utilities.execute(cmd)
