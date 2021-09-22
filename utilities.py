@@ -783,7 +783,7 @@ def await_worker_deployment(worker_info, namespace, timeout=120):
             else:
                 if state == 'Running':
                     running_workers.append(worker_name)
-        if len(running_workers) == list(dictionary.keys()) - 1:
+        if len(running_workers) == len(list(dictionary.keys())) - 1:
             logger.info('all workers are running')
             processing = False
         else:
