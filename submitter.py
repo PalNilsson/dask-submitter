@@ -166,18 +166,19 @@ if __name__ == '__main__':
         logger.info('created namespace: %s', _namespace)
 
     # switch context for the new namespace
-    status = utilities.kubectl_execute(cmd='config use-context', namespace=_namespace)
+    #status = utilities.kubectl_execute(cmd='config use-context', namespace=_namespace)
 
     # switch context for the new namespace
-    status = utilities.kubectl_execute(cmd='config use-context', namespace='default')
+    #status = utilities.kubectl_execute(cmd='config use-context', namespace='default')
 
     # remove the single-user namespace
-    status = utilities.kubectl_delete(filename=namespace_filename)
+    #status = utilities.kubectl_delete(filename=namespace_filename)
 
-    exit(0)
     # create scheduler yaml
     scheduler_path = os.path.join(os.getcwd(), yaml_files.get('dask-scheduler'))
-    scheduler_yaml = utilities.get_scheduler_yaml(image_source="palnilsson/dask-scheduler:latest", nfs_path="/mnt/dask")
+    scheduler_yaml = utilities.get_scheduler_yaml(image_source="palnilsson/dask-scheduler:latest",
+                                                  nfs_path="/mnt/dask",
+                                                  namespace=_namespace)
     status = utilities.write_file(scheduler_path, scheduler_yaml, mute=False)
     if not status:
         logger.warning('cannot continue since yaml file could not be created')
@@ -197,12 +198,12 @@ if __name__ == '__main__':
 
     # deploy the worker pods
     _nworkers = 2  # from Dask object..
-    worker_info = utilities.deploy_workers(scheduler_ip, _nworkers, yaml_files)
+    worker_info = utilities.deploy_workers(scheduler_ip, _nworkers, yaml_files, _namespace)
     if not worker_info:
         exit(-1)
 
     # wait for the worker pods to start
-    status = utilities.await_worker_deployment(worker_info)
+    status = utilities.await_worker_deployment(worker_info, _namespace)
     if not status:
         exit(-1)
 

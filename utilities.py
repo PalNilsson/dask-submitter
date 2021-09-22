@@ -209,6 +209,9 @@ def kubectl_execute(cmd=None, filename=None, pod=None, namespace=None):
     else:
         execmd = 'kubectl %s %s' % (cmd, pod) if pod else 'kubectl %s' % cmd
 
+    if cmd == 'get pods':
+        execmd += ' --namespace=%s' % namespace
+
     logger.debug('executing: %s', execmd)
     exitcode, stdout, stderr = execute(execmd)
 #    if exitcode and stderr.lower().startswith('error'):
@@ -388,12 +391,13 @@ def write_file(path, contents, mute=True, mode='w', unique=False):
     return status
 
 
-def get_scheduler_yaml(image_source="", nfs_path=""):
+def get_scheduler_yaml(image_source="", nfs_path="", namespace=""):
     """
     Return the yaml for the Dask scheduler for a given image and the path to the shared file system.
 
     :param image_source: image source (string).
     :param nfs_path: NFS path (string).
+    :param namespace: namespace (string).
     :return: yaml (string).
     """
 
@@ -403,12 +407,16 @@ def get_scheduler_yaml(image_source="", nfs_path=""):
     if not nfs_path:
         logger.warning('nfs path must be set')
         return ""
+    if not namespace:
+        logger.warning('namespace must be set')
+        return ""
 
     yaml = """
 apiVersion: v1
 kind: Pod
 metadata:
   name: dask-scheduler
+  namespace: CHANGE_NAMESPACE
 spec:
   restartPolicy: Never
   containers:
@@ -426,11 +434,12 @@ spec:
 
     yaml = yaml.replace('CHANGE_IMAGE_SOURCE', image_source)
     yaml = yaml.replace('CHANGE_NFS_PATH', nfs_path)
+    yaml = yaml.replace('CHANGE_NAMESPACE', namespace)
 
     return yaml
 
 
-def get_worker_yaml(image_source="", nfs_path="", scheduler_ip="", worker_name=""):
+def get_worker_yaml(image_source="", nfs_path="", scheduler_ip="", worker_name="", namespace=""):
     """
     Return the yaml for the Dask worker for a given image, path to the shared file system and Dask scheduler IP.
 
@@ -439,6 +448,7 @@ def get_worker_yaml(image_source="", nfs_path="", scheduler_ip="", worker_name="
     :param nfs_path: NFS path (string).
     :param scheduler_ip: dask scheduler IP (string).
     :param worker_name: dask worker name (string).
+    :param namespace: namespace (string).
     :return: yaml (string).
     """
 
@@ -454,6 +464,9 @@ def get_worker_yaml(image_source="", nfs_path="", scheduler_ip="", worker_name="
     if not worker_name:
         logger.warning('dask worker name must be set')
         return ""
+    if not namespace:
+        logger.warning('namespace must be set')
+        return ""
 
 # image_source=palnilsson/dask-worker:latest
 # scheduler_ip=e.g. tcp://10.8.2.3:8786
@@ -462,6 +475,7 @@ apiVersion: v1
 kind: Pod
 metadata:
   name: CHANGE_WORKER_NAME
+  namespace: CHANGE_NAMESPACE
 spec:
   restartPolicy: Never
   containers:
@@ -486,11 +500,12 @@ spec:
     yaml = yaml.replace('CHANGE_DASK_SCHEDULER_IP', scheduler_ip)
     yaml = yaml.replace('CHANGE_NFS_PATH', nfs_path)
     yaml = yaml.replace('CHANGE_WORKER_NAME', worker_name)
+    yaml = yaml.replace('CHANGE_NAMESPACE', namespace)
 
     return yaml
 
 
-def get_pilot_yaml(image_source="", nfs_path=""):
+def get_pilot_yaml(image_source="", nfs_path="", namespace=""):
     """
     Return the yaml for the Pilot X for a given image and the path to the shared file system.
 
@@ -498,6 +513,7 @@ def get_pilot_yaml(image_source="", nfs_path=""):
 
     :param image_source: image source (string).
     :param nfs_path: NFS path (string).
+    :param namespace: namespace (string).
     :return: yaml (string).
     """
 
@@ -507,12 +523,16 @@ def get_pilot_yaml(image_source="", nfs_path=""):
     if not nfs_path:
         logger.warning('nfs path must be set')
         return ""
+    if not namespace:
+        logger.warning('namespace must be set')
+        return ""
 
     yaml = """
 apiVersion: v1
 kind: Pod
 metadata:
   name: dask-pilot
+  namespace: CHANGE_NAMESPACE
 spec:
   restartPolicy: Never
   containers:
@@ -533,6 +553,7 @@ spec:
 
     yaml = yaml.replace('CHANGE_IMAGE_SOURCE', image_source)
     yaml = yaml.replace('CHANGE_NFS_PATH', nfs_path)
+    yaml = yaml.replace('CHANGE_NAMESPACE', namespace)
 
     return yaml
 
@@ -585,7 +606,7 @@ def get_scheduler_ip(pod=None, timeout=120):
     return scheduler_ip
 
 
-def deploy_workers(scheduler_ip, _nworkers, yaml_files):
+def deploy_workers(scheduler_ip, _nworkers, yaml_files, namespace):
     """
     Deploy the worker pods and return a dictionary with the worker info.
 
@@ -594,6 +615,7 @@ def deploy_workers(scheduler_ip, _nworkers, yaml_files):
     :param scheduler_ip: dask scheduler IP (string).
     :param _nworkers: number of workers (int).
     :param yaml_files: yaml files dictionary.
+    :param namespace: namespace (string).
     :return: worker info dictionary.
     """
 
@@ -608,7 +630,8 @@ def deploy_workers(scheduler_ip, _nworkers, yaml_files):
         worker_yaml = get_worker_yaml(image_source="palnilsson/dask-worker:latest",
                                       nfs_path="/mnt/dask",
                                       scheduler_ip=scheduler_ip,
-                                      worker_name=worker_name)
+                                      worker_name=worker_name,
+                                      namespace=namespace)
         status = write_file(worker_path, worker_yaml, mute=False)
         if not status:
             logger.warning('cannot continue since yaml file could not be created')
@@ -624,16 +647,17 @@ def deploy_workers(scheduler_ip, _nworkers, yaml_files):
     return worker_info
 
 
-def await_worker_deployment(worker_info):
+def await_worker_deployment(worker_info, namespace):
     """
     Wait for all workers to start running.
 
     :param worker_info: worker info dictionary.
+    :param namespace: namespace (string).
     :return: True if all pods end up in Running state (Boolean).
     """
 
     # get the full pod info dictionary - note: not good if MANY workers
-    status, stdout = kubectl_execute(cmd='get pods')
+    status, stdout = kubectl_execute(cmd='get pods', namespace=namespace)
     if not status:
         return False
 
