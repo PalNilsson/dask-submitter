@@ -167,6 +167,19 @@ if __name__ == '__main__':
         logger.info('created namespace: %s', _namespace)
     #_namespace = "default"
 
+    # create PVC
+    pvc_path = os.path.join(os.path.join(os.getcwd(), 'pvc.yaml'))
+    pvc_yaml = utilities.get_pvc_yaml(namespace=_namespace, user_id=user_id)
+    status = utilities.write_file(pvc_path, pvc_yaml)
+    if not status:
+        logger.warning('cannot continue since yaml file could not be created')
+        exit(-1)
+
+    #
+    status, _ = utilities.kubectl_create(filename=pvc_path)
+    if not status:
+        exit(-1)
+
     # create PV
     pv_path = os.path.join(os.path.join(os.getcwd(), 'pv.yaml'))
     pv_yaml = utilities.get_pv_yaml(namespace=_namespace, user_id=user_id)

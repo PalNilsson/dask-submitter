@@ -428,6 +428,45 @@ spec:
     return yaml
 
 
+def get_pvc_yaml(namespace=None, user_id=None):
+    """
+
+    :param namespace: namespace (string).
+    :param user_id: user id (string).
+    :return: yaml (string).
+    """
+
+    if not namespace:
+        logger.warning('namespace must be set')
+        return ""
+    if not user_id:
+        logger.warning('user id must be set')
+        return ""
+
+    yaml = """
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: fileserver-claim
+  namespace: CHANGE_NAMESPACE
+spec:
+  # Specify "" as the storageClassName so it matches the PersistentVolume's StorageClass.
+  # A nil storageClassName value uses the default StorageClass. For details, see
+  # https://kubernetes.io/docs/concepts/storage/persistent-volumes/#class-1
+  accessModes:
+  - ReadWriteMany
+  storageClassName: ""
+  volumeName: fileserver-CHANGE_USERID
+  resources:
+    requests:
+      storage: 200Gi"""
+
+    yaml = yaml.replace('CHANGE_USERID', user_id)
+    yaml = yaml.replace('CHANGE_NAMESPACE', namespace)
+
+    return yaml
+
+
 def get_scheduler_yaml(image_source=None, nfs_path=None, namespace=None, user_id=None):
     """
     Return the yaml for the Dask scheduler for a given image and the path to the shared file system.
