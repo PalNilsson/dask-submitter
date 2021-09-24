@@ -27,7 +27,8 @@ the worker and pilot pods upon their start-ups using an environmental
 variable set in the corresponding yaml file.
 
 The pilot pod downloads the user dask-script from a known location and
-executes it.
+executes it after connecting to the dask scheduler (i.e. creating a client)
+and making sure that enough (?) workers are running.
 
 ### Comments
 

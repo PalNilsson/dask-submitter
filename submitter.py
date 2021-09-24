@@ -34,8 +34,35 @@ class DaskSubmitter(object):
     Dask submitter interface class.
     """
 
+    # note: all private fields can be set in init function except the _ispvc and _ispv
+
     _nworkers = 1
     _namespace = ''
+    _userid = ''
+    _mountpath = '/mnt/dask'
+    _ispvc = False  # set when PVC is successfully created
+    _ispv = False  # set when PV is successfully created
+
+    _files = {
+        'dask-scheduler': 'dask-scheduler-deployment.yaml',
+        'dask-worker': 'dask-worker-deployment-%d.yaml',
+        'dask-pilot': 'dask-pilot-deployment.yaml',
+        'namespace': 'namespace.json',
+        'pvc': 'pvc.yaml',
+        'pv': 'pv.yaml',
+    }
+
+    _images = {
+        'dask-scheduler': 'palnilsson/dask-scheduler:latest',
+        'dask-worker': '',
+        'dask-pilot': ''
+    }
+
+    _podnames = {
+        'dask-scheduler': 'dask-scheduler',
+        'dask-worker': 'dask-worker',
+        'dask-pilot': 'dask-pilot',
+    }
 
     def __init__(self, **kwargs):
         """
@@ -45,97 +72,159 @@ class DaskSubmitter(object):
         """
 
         self._nworkers = kwargs.get('nworkers', 1)
-        self._namespace = 'single-user-%s' % ''.join(random.choice(ascii_lowercase) for _ in range(5))
+        self._userid = kwargs.get('userid', ''.join(random.choice(ascii_lowercase) for _ in range(5)))
+        self._namespace = kwargs.get('namespace', 'single-user-%s' % self._userid)
+        self._files = kwargs.get('files', self._files)
+        self._images = kwargs.get('images', self._images)
 
-    def install(self, job_definition):
+    def get_userid(self):
         """
-        Install the pods for the dask scheduler and workers, and Pilot X
+        Return the user id.
 
-        Note: Pilot X is currently a simplified PanDA Pilot, but is likely to be absorbed into the main
-        PanDA Pilot code base as a special workflow for Dask on Kubernetes resources.
-
-        The install function will start by installing the Pilot X pod on the dask cluster. When it starts running,
-        Pilot X will wait for a job definition to appear on the shared file system. It will then proceed staging any
-        input files.
-
-        In the meantime, this function (who also knows about the job definition) will asynchronously install the dask
-        scheduler and all required workers
-
-        :param job_definition: job definition dictionary.
-        :return: True for successfully installed pods (Boolean).
+        :return: user id (string).
         """
 
-        # install Pilot X pod
-        status = self.install_pilotx_pod()
-        if not status:
-            return status
+        return self._userid
 
-        # copy bundle (job definition etc)
+    def get_namespace(self):
+        """
+        Return the namespace.
 
-        # copy job definition to shared directory
-        # (copy to Pilot X pod which has the shared directory mounted)
-        status = self.copy_job_definition(job_definition)
-        if not status:
-            return status
+        namespace = single-user-<user id>.
 
-        # install dask scheduler
-        status = self.install_dask_scheduler()
-        if not status:
-            return status
+        :return: namespace (string).
+        """
 
-        # install dask worker(s)
-        status = self.install_dask_workers(job_definition)
+        return self._namespace
+
+    def create_namespace(self):
+        """
+        Create the random namespace.
+
+        :return: True if successful (Boolean).
+        """
+
+        namespace_filename = os.path.join(os.getcwd(), self._files.get('namespace'))
+        return utilities.create_namespace(self._namespace, namespace_filename)
+
+    def create_pvcpv(self, name='pvc'):
+        """
+        Create the PVC or PV.
+
+        :param name: 'pvc' or 'pv' (string).
+        :return: True if successful (Boolean).
+        """
+
+        if name not in ['pvc', 'pv']:
+            logger.warning('unknown PVC/PC name: %s', name)
+            return False
+
+        # create the yaml file
+        path = os.path.join(os.path.join(os.getcwd(), self._files.get(name)))
+        func = utilities.get_pvc_yaml if name == 'pvc' else utilities.get_pv_yaml
+        yaml = func(namespace=self._namespace, user_id=self._userid)
+        status = utilities.write_file(path, yaml)
         if not status:
-            return status
+            return False
+
+        # create the PVC/PV
+        status, _ = utilities.kubectl_create(filename=path)
+        if name == 'pvc':
+            self._ispvc = status
+        elif name == 'pv':
+            self._ispv = status
 
         return status
 
-    def uninstall(self):
+    def deploy_dask_scheduler(self):
         """
-        Uninstall all pods.
-        """
+        Deploy the dask scheduler and return its IP.
 
-        # uninstall all pods
-        # ..
-
-        pass
-
-    def install_pilotx_pod(self):
+        :return: scheduler IP if successful (string).
         """
 
+        # create scheduler yaml
+        scheduler_path = os.path.join(os.getcwd(), self._files.get('dask-scheduler'))
+        scheduler_yaml = utilities.get_scheduler_yaml(image_source=self._images.get('dask-scheduler'),
+                                                      nfs_path=self._mountpath,
+                                                      namespace=self._namespace,
+                                                      user_id=self._userid)
+        status = utilities.write_file(scheduler_path, scheduler_yaml, mute=False)
+        if not status:
+            logger.warning('cannot continue since yaml file could not be created')
+            return ''
+
+        # start the dask scheduler pod
+        status, _ = utilities.kubectl_create(filename=scheduler_path)
+
+        # extract scheduler IP from stdout (when available)
+        return utilities.get_scheduler_ip(pod=self._podnames.get('dask-scheduler'), namespace=self._namespace)
+
+    def deploy_dask_workers(self, scheduler_ip):
+        """
+        Deploy all dask workers.
+
+        :param scheduler_ip: dask scheduler IP (string).
+        :return: True if successful (Boolean)
         """
 
-        status = True
+        worker_info = utilities.deploy_workers(scheduler_ip,
+                                               self._nworkers,
+                                               self._files,
+                                               self._namespace,
+                                               self._userid,
+                                               self._images.get('dask-worker'),
+                                               self._mountpath)
+        if not worker_info:
+            logger.warning('failed to deploy workers')
+            return False
+
+        # wait for the worker pods to start
+        try:
+            status = utilities.await_worker_deployment(worker_info, self._namespace)
+        except Exception as exc:
+            logger.warning('caught exception: %s', exc)
+            status = False
+
 
         return status
 
-    def copy_job_definition(self, job_definition):
+    def deploy_pilot(self, scheduler_ip):
+        """
+        Deploy the pilot pod.
+
+        :param scheduler_ip: dash scheduler IP (string).
+        :return: True if successful (string).
         """
 
+        # create pilot yaml
+        path = os.path.join(os.getcwd(), self._files.get('dask-pilot'))
+        yaml = utilities.get_pilot_yaml(image_source=self._images.get('dask-pilot'),
+                                        nfs_path=self._mountpath,
+                                        namespace=self._namespace,
+                                        user_id=self._userid,
+                                        scheduler_ip=scheduler_ip)
+        status = utilities.write_file(path, yaml, mute=False)
+        if not status:
+            logger.warning('cannot continue since pilot yaml file could not be created')
+            return False
+
+        # start the pilot pod
+        status, _ = utilities.kubectl_create(filename=path)
+        if not status:
+            logger.warning('failed to create pilot pod')
+            return False
+
+        return utilities.wait_until_deployment(pod=self._podnames.get('dask-pilot'), state='Running')
+
+    def copy_bundle(self):
+        """
+        Copy bundle (incl. job definition).
+
+        :return: True if successful (Boolean).
         """
 
         status = True
-
-        return status
-
-    def install_dask_scheduler(self):
-        """
-
-        """
-
-        status = True
-
-        return status
-
-    def install_dask_workers(self, job_definition):
-        """
-
-        """
-
-        status = True
-
-        # get number of workers from job definition
-        # issue all install commands at once, then wait for pod status to be 'running'
 
         return status
 
@@ -146,6 +235,8 @@ def cleanup(namespace=None, user_id=None, pvc=False, pv=False):
 
     :param namespace: namespace (string).
     :param user_id: user id (string).
+    :param pvc: True if PVC was created (Boolean).
+    :param pv: True if PV was created (Boolean).
     :return:
     """
 
@@ -193,56 +284,30 @@ if __name__ == '__main__':
     logging.info("*** Dask submitter ***")
     logging.info("Python version %s", sys.version)
     starttime = time.time()
-    submitter = DaskSubmitter()
-
-    yaml_files = {
-        'dask-scheduler': 'dask-scheduler-deployment.yaml',
-        'dask-worker': 'dask-worker-deployment-%d.yaml',
-        'dask-pilot': 'dask-pilot-deployment.yaml',
-    }
+    submitter = DaskSubmitter(nworkers=1)
 
     # create unique name space
-    user_id = ''.join(random.choice(ascii_lowercase) for _ in range(5))
-    namespace = 'single-user-%s' % user_id
-    namespace_filename = os.path.join(os.getcwd(), 'namespace.json')
-    status = utilities.create_namespace(namespace, namespace_filename)
-    if not status:
-        logger.warning('failed to create namespace: %s', namespace)
+    if not submitter.create_namespace():
+        logger.warning('failed to create namespace: %s', submitter.get_namespace())
         cleanup()
         exit(-1)
     else:
-        logger.info('created namespace: %s', namespace)
-    #namespace = "default"
+        logger.info('created namespace: %s', submitter.get_namespace())
 
-    # create PVC
-    pvc_path = os.path.join(os.path.join(os.getcwd(), 'pvc.yaml'))
-    pvc_yaml = utilities.get_pvc_yaml(namespace=namespace, user_id=user_id)
-    status = utilities.write_file(pvc_path, pvc_yaml)
-    if not status:
-        logger.warning('cannot continue since yaml file could not be created')
-        cleanup(namespace=namespace, user_id=user_id)
-        exit(-1)
+    # create PVC and PV
+    for name in ['pvc', 'pv']:
+        if not submitter.create_pvcpv(name=name):
+            logger.warning('could not create PVC/PV')
+            cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid())
+            exit(-1)
+    logger.info('created PVC and PV')
 
-    #
-    status, _ = utilities.kubectl_create(filename=pvc_path)
-    if not status:
-        cleanup(namespace=namespace, user_id=user_id)
+    # deploy the dask scheduler
+    scheduler_ip = submitter.deploy_dask_scheduler()
+    if not scheduler_ip:
+        cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
         exit(-1)
-
-    # create PV
-    pv_path = os.path.join(os.path.join(os.getcwd(), 'pv.yaml'))
-    pv_yaml = utilities.get_pv_yaml(namespace=namespace, user_id=user_id)
-    status = utilities.write_file(pv_path, pv_yaml)
-    if not status:
-        logger.warning('cannot continue since yaml file could not be created')
-        cleanup(namespace=namespace, user_id=user_id, pvc=True)
-        exit(-1)
-
-    #
-    status, _ = utilities.kubectl_create(filename=pv_path)
-    if not status:
-        cleanup(namespace=namespace, user_id=user_id, pvc=True)
-        exit(-1)
+    logger.info('deployed dask-scheduler pod')
 
     # switch context for the new namespace
     #status = utilities.kubectl_execute(cmd='config use-context', namespace=namespace)
@@ -250,59 +315,22 @@ if __name__ == '__main__':
     # switch context for the new namespace
     #status = utilities.kubectl_execute(cmd='config use-context', namespace='default')
 
-    # create scheduler yaml
-    scheduler_path = os.path.join(os.getcwd(), yaml_files.get('dask-scheduler'))
-    scheduler_yaml = utilities.get_scheduler_yaml(image_source="palnilsson/dask-scheduler:latest",
-                                                  nfs_path="/mnt/dask",
-                                                  namespace=namespace,
-                                                  user_id=user_id)
-    status = utilities.write_file(scheduler_path, scheduler_yaml, mute=False)
-    if not status:
-        logger.warning('cannot continue since yaml file could not be created')
-        cleanup(namespace=namespace, user_id=user_id, pvc=True, pv=True)
-        exit(-1)
-
-    # start the dask scheduler pod
-    status, _ = utilities.kubectl_create(filename=scheduler_path)
-    if not status:
-        cleanup(namespace=namespace, user_id=user_id, pvc=True, pv=True)
-        exit(-1)
-    logger.info('deployed dask-scheduler pod')
-
-    # extract scheduler IP from stdout (when available)
-    scheduler_ip = utilities.get_scheduler_ip(pod='dask-scheduler', namespace=namespace)
-    if not scheduler_ip:
-        cleanup(namespace=namespace, user_id=user_id, pvc=True, pv=True)
-        exit(-1)
-    logger.info('using dask-scheduler IP: %s', scheduler_ip)
-
     # deploy the worker pods
-    _nworkers = 2  # from Dask object..
-    worker_info = utilities.deploy_workers(scheduler_ip, _nworkers, yaml_files, namespace, user_id)
-    if not worker_info:
-        cleanup(namespace=namespace, user_id=user_id, pvc=True, pv=True)
-        exit(-1)
-
-    # wait for the worker pods to start
-    try:
-        status = utilities.await_worker_deployment(worker_info, namespace)
-    except Exception as exc:
-        logger.warning('caught exception: %s', exc)
-        status = False
+    status = submitter.deploy_dask_workers(scheduler_ip)
     if not status:
-        cleanup(namespace=namespace, user_id=user_id, pvc=True, pv=True)
+        cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
         exit(-1)
+    logger.info('deployed all dask-worker pods')
 
-    pod = 'dask-pilot'
-    status = utilities.wait_until_deployment(pod=pod, state='Running')
+    # deploy the pilot pod
+    status = submitter.deploy_pilot(scheduler_ip)
     if not status:
-        cleanup(namespace=namespace, user_id=user_id, pvc=True, pv=True)
+        cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
         exit(-1)
-    else:
-        logger.info('pod %s is running', pod)
+    logger.info('deployed pilot pod')
 
+    # done, cleanup and exit
     now = time.time()
     logger.info('total running time: %d s', now - starttime)
-
-    cleanup(namespace=namespace, user_id=user_id, pvc=True, pv=True)
+    cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
     exit(0)

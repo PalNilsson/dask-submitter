@@ -595,15 +595,15 @@ spec:
     return yaml
 
 
-def get_pilot_yaml(image_source="", nfs_path="", namespace=""):
+def get_pilot_yaml(image_source=None, nfs_path=None, namespace=None, scheduler_ip=None, user_id=None):
     """
     Return the yaml for the Pilot X for a given image and the path to the shared file system.
-
-    # palnilsson/dask-pilot:latest
 
     :param image_source: image source (string).
     :param nfs_path: NFS path (string).
     :param namespace: namespace (string).
+    :param scheduler_ip: dask scheduler IP (string).
+    :param user_id: user id (string).
     :return: yaml (string).
     """
 
@@ -615,6 +615,12 @@ def get_pilot_yaml(image_source="", nfs_path="", namespace=""):
         return ""
     if not namespace:
         logger.warning('namespace must be set')
+        return ""
+    if not scheduler_ip:
+        logger.warning('dask scheduler IP must be set')
+        return ""
+    if not user_id:
+        logger.warning('user id must be set')
         return ""
 
     yaml = """
@@ -629,21 +635,25 @@ spec:
   - name: dask-pilot
     image: CHANGE_IMAGE_SOURCE
     env:
+    - name: DASK_SCHEDULER_IP
+      value: "CHANGE_DASK_SCHEDULER_IP"
     - name: DASK_SHARED_FILESYSTEM_PATH
       value: CHANGE_NFS_PATH
     volumeMounts:
     - mountPath: CHANGE_NFS_PATH
-      name: fileserver
+      name: fileserver-CHANGE_USERID
   volumes:
-  - name: fileserver
+  - name: fileserver-CHANGE_USERID
     persistentVolumeClaim:
       claimName: fileserver-claim
       readOnly: false
 """
 
     yaml = yaml.replace('CHANGE_IMAGE_SOURCE', image_source)
+    yaml = yaml.replace('CHANGE_DASK_SCHEDULER_IP', scheduler_ip)
     yaml = yaml.replace('CHANGE_NFS_PATH', nfs_path)
     yaml = yaml.replace('CHANGE_NAMESPACE', namespace)
+    yaml = yaml.replace('CHANGE_USERID', user_id)
 
     return yaml
 
@@ -697,7 +707,7 @@ def get_scheduler_ip(pod=None, timeout=480, namespace=None):
     return scheduler_ip
 
 
-def deploy_workers(scheduler_ip, _nworkers, yaml_files, namespace, user_id):
+def deploy_workers(scheduler_ip, _nworkers, yaml_files, namespace, user_id, imagename, mountpath):
     """
     Deploy the worker pods and return a dictionary with the worker info.
 
@@ -708,6 +718,8 @@ def deploy_workers(scheduler_ip, _nworkers, yaml_files, namespace, user_id):
     :param yaml_files: yaml files dictionary.
     :param namespace: namespace (string).
     :param user_id: user id (string).
+    :param imagename: image name (string).
+    :param mountpath: FS mount path (string).
     :return: worker info dictionary.
     """
 
@@ -719,8 +731,8 @@ def deploy_workers(scheduler_ip, _nworkers, yaml_files, namespace, user_id):
         worker_info[worker_name] = worker_path
 
         # create worker yaml
-        worker_yaml = get_worker_yaml(image_source="palnilsson/dask-worker:latest",
-                                      nfs_path="/mnt/dask",
+        worker_yaml = get_worker_yaml(image_source=imagename,
+                                      nfs_path=mountpath,
                                       scheduler_ip=scheduler_ip,
                                       worker_name=worker_name,
                                       namespace=namespace,
@@ -790,7 +802,6 @@ def await_worker_deployment(worker_info, namespace, timeout=120):
             time.sleep(_sleep)
             now = time.time()
 
-        logger.debug('workers_list=%s', str(workers_list))
-        logger.debug('running_workers=%s', str(running_workers))
+        logger.debug('number of running dask workers: %d', len(running_workers))
 
     return status
