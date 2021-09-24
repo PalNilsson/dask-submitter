@@ -101,7 +101,7 @@ class DaskSubmitter(object):
         """
         Create the random namespace.
 
-        :return: True if successful (Boolean).
+        :return: True if successful, stderr (Boolean, string).
         """
 
         namespace_filename = os.path.join(os.getcwd(), self._files.get('namespace'))
@@ -112,12 +112,13 @@ class DaskSubmitter(object):
         Create the PVC or PV.
 
         :param name: 'pvc' or 'pv' (string).
-        :return: True if successful (Boolean).
+        :return: True if successful (Boolean), stderr (string).
         """
 
         if name not in ['pvc', 'pv']:
-            logger.warning('unknown PVC/PC name: %s', name)
-            return False
+            stderr = 'unknown PVC/PC name: %s', name
+            logger.warning(stderr)
+            return False, stderr
 
         # create the yaml file
         path = os.path.join(os.path.join(os.getcwd(), self._files.get(name)))
@@ -125,22 +126,22 @@ class DaskSubmitter(object):
         yaml = func(namespace=self._namespace, user_id=self._userid)
         status = utilities.write_file(path, yaml)
         if not status:
-            return False
+            return False, 'write_file failed for file %s' % path
 
         # create the PVC/PV
-        status, _ = utilities.kubectl_create(filename=path)
+        status, _, stderr = utilities.kubectl_create(filename=path)
         if name == 'pvc':
             self._ispvc = status
         elif name == 'pv':
             self._ispv = status
 
-        return status
+        return status, stderr
 
     def deploy_dask_scheduler(self):
         """
         Deploy the dask scheduler and return its IP.
 
-        :return: scheduler IP if successful (string).
+        :return: scheduler IP if successful, stderr (string, string).
         """
 
         # create scheduler yaml
@@ -155,7 +156,9 @@ class DaskSubmitter(object):
             return ''
 
         # start the dask scheduler pod
-        status, _ = utilities.kubectl_create(filename=scheduler_path)
+        status, _, stderr = utilities.kubectl_create(filename=scheduler_path)
+        if not status:
+            return status, stderr
 
         # extract scheduler IP from stdout (when available)
         return utilities.get_scheduler_ip(pod=self._podnames.get('dask-scheduler'), namespace=self._namespace)
@@ -165,36 +168,36 @@ class DaskSubmitter(object):
         Deploy all dask workers.
 
         :param scheduler_ip: dask scheduler IP (string).
-        :return: True if successful (Boolean)
+        :return: True if successful, stderr (Boolean, string)
         """
 
-        worker_info = utilities.deploy_workers(scheduler_ip,
-                                               self._nworkers,
-                                               self._files,
-                                               self._namespace,
-                                               self._userid,
-                                               self._images.get('dask-worker'),
-                                               self._mountpath)
+        worker_info, stderr = utilities.deploy_workers(scheduler_ip,
+                                                       self._nworkers,
+                                                       self._files,
+                                                       self._namespace,
+                                                       self._userid,
+                                                       self._images.get('dask-worker'),
+                                                       self._mountpath)
         if not worker_info:
-            logger.warning('failed to deploy workers')
-            return False
+            logger.warning('failed to deploy workers: %s', stderr)
+            return False, stderr
 
         # wait for the worker pods to start
         try:
             status = utilities.await_worker_deployment(worker_info, self._namespace)
         except Exception as exc:
-            logger.warning('caught exception: %s', exc)
+            stderr = 'caught exception: %s', exc
+            logger.warning(stderr)
             status = False
 
-
-        return status
+        return status, stderr
 
     def deploy_pilot(self, scheduler_ip):
         """
         Deploy the pilot pod.
 
         :param scheduler_ip: dash scheduler IP (string).
-        :return: True if successful (string).
+        :return: True if successful (Boolean), stderr (string).
         """
 
         # create pilot yaml
@@ -206,14 +209,15 @@ class DaskSubmitter(object):
                                         scheduler_ip=scheduler_ip)
         status = utilities.write_file(path, yaml, mute=False)
         if not status:
-            logger.warning('cannot continue since pilot yaml file could not be created')
-            return False
+            stderr = 'cannot continue since pilot yaml file could not be created'
+            logger.warning(stderr)
+            return False, stderr
 
         # start the pilot pod
-        status, _ = utilities.kubectl_create(filename=path)
+        status, _, stderr = utilities.kubectl_create(filename=path)
         if not status:
-            logger.warning('failed to create pilot pod')
-            return False
+            logger.warning('failed to create pilot pod: %s', stderr)
+            return False, stderr
 
         return utilities.wait_until_deployment(pod=self._podnames.get('dask-pilot'), state='Running')
 
@@ -287,8 +291,9 @@ if __name__ == '__main__':
     submitter = DaskSubmitter(nworkers=1)
 
     # create unique name space
-    if not submitter.create_namespace():
-        logger.warning('failed to create namespace: %s', submitter.get_namespace())
+    status, stderr = submitter.create_namespace()
+    if not status:
+        logger.warning('failed to create namespace %s: %s', submitter.get_namespace(), stderr)
         cleanup()
         exit(-1)
     else:
@@ -296,15 +301,17 @@ if __name__ == '__main__':
 
     # create PVC and PV
     for name in ['pvc', 'pv']:
-        if not submitter.create_pvcpv(name=name):
-            logger.warning('could not create PVC/PV')
+        status, stderr = submitter.create_pvcpv(name=name)
+        if not status:
+            logger.warning('could not create PVC/PV: %s', stderr)
             cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid())
             exit(-1)
     logger.info('created PVC and PV')
 
     # deploy the dask scheduler
-    scheduler_ip = submitter.deploy_dask_scheduler()
+    scheduler_ip, stderr = submitter.deploy_dask_scheduler()
     if not scheduler_ip:
+        logger.warning('failed to deploy dask scheduler: %s', stderr)
         cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
         exit(-1)
     logger.info('deployed dask-scheduler pod')
@@ -316,14 +323,15 @@ if __name__ == '__main__':
     #status = utilities.kubectl_execute(cmd='config use-context', namespace='default')
 
     # deploy the worker pods
-    status = submitter.deploy_dask_workers(scheduler_ip)
+    status, stderr = submitter.deploy_dask_workers(scheduler_ip)
     if not status:
+        logger.warning('failed to deploy dask workers: %s', stderr)
         cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
         exit(-1)
     logger.info('deployed all dask-worker pods')
 
     # deploy the pilot pod
-    #status = submitter.deploy_pilot(scheduler_ip)
+    #status, stderr = submitter.deploy_pilot(scheduler_ip)
     #if not status:
     #    cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
     #    exit(-1)

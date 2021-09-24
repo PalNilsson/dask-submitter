@@ -62,7 +62,7 @@ def create_namespace(_namespace, filename):
 
     :param _namespace: namespace (string).
     :param filename: namespace json file name (string).
-    :return: True if successful (Boolean).
+    :return: True if successful, stderr (Boolean, string).
     """
 
     namespace_dictionary = {
@@ -81,9 +81,9 @@ def create_namespace(_namespace, filename):
     if not status:
         return False
 
-    status, _ = kubectl_apply(filename=filename)
+    status, _, stderr = kubectl_apply(filename=filename)
 
-    return status
+    return status, stderr
 
 
 def execute(executable, **kwargs):
@@ -94,7 +94,7 @@ def execute(executable, **kwargs):
 
     :param executable: command to be executed (string or list).
     :param kwargs (timeout, usecontainer, returnproc):
-    :return: exit code, stdout and stderr (or process if requested via returnproc argument)
+    :return: exit code (int), stdout (string) and stderr (string) (or process if requested via returnproc argument)
     """
 
     cwd = kwargs.get('cwd', os.getcwd())
@@ -133,7 +133,7 @@ def kubectl_create(filename=None):
     Execute the kubectl create command for a given yaml file.
 
     :param filename: yaml or json file name (string).
-    :return: True if success (Boolean).
+    :return: True if success (Boolean), stdout (string), stderr (string).
     """
 
     if not filename:
@@ -147,7 +147,7 @@ def kubectl_apply(filename=None):
     Execute the kubectl apply command for a given yaml or json file.
 
     :param filename: yaml or json file name (string).
-    :return: True if success (Boolean).
+    :return: True if success (Boolean), stdout (string), stderr (string).
     """
 
     if not filename:
@@ -161,7 +161,7 @@ def kubectl_delete(filename=None):
     Execute the kubectl delete command for a given yaml file.
 
     :param filename: yaml file name (string).
-    :return: True if success (Boolean).
+    :return: True if success (Boolean), stdout (string), stderr (string).
     """
 
     if not filename:
@@ -176,13 +176,13 @@ def kubectl_logs(pod=None, namespace=None):
 
     :param pod: pod name (string).
     :param namespace: namespace (string).
-    :return: stdout logs (string).
+    :return: True if success (Boolean), stdout (string), stderr (string).
     """
 
     if not pod:
-        return None
+        return None, '', 'pod not set'
     if not namespace:
-        return None
+        return None, '', 'namespace not set'
 
     return kubectl_execute(cmd='logs', pod=pod, namespace=namespace)
 
@@ -195,15 +195,17 @@ def kubectl_execute(cmd=None, filename=None, pod=None, namespace=None):
     :param filename: yaml or json file name (string).
     :param pod: pod name (string).
     :param namespace: namespace (string).
-    :return: True if success, stdout (Boolean, string).
+    :return: True if success, stdout, stderr (Boolean, string, string).
     """
 
     if not cmd:
-        logger.warning('kubectl command not set not set')
-        return None
+        stderr = 'kubectl command not set not set'
+        logger.warning(stderr)
+        return None, '', stderr
     if cmd not in ['create', 'delete', 'logs', 'get pods', 'config use-context', 'apply']:
-        logger.warning('unknown kubectl command: %s', cmd)
-        return None
+        stderr = 'unknown kubectl command: %s', cmd
+        logger.warning(stderr)
+        return None, '', stderr
 
     if cmd in ['create', 'delete', 'apply']:
         execmd = 'kubectl %s -f %s' % (cmd, filename)
@@ -224,7 +226,7 @@ def kubectl_execute(cmd=None, filename=None, pod=None, namespace=None):
     else:
         status = True
 
-    return status, stdout
+    return status, stdout, stderr
 
 
 def wait_until_deployment(pod=None, state=None, timeout=120, namespace=None):
@@ -238,12 +240,13 @@ def wait_until_deployment(pod=None, state=None, timeout=120, namespace=None):
     :param state: required status (string).
     :param timeout: time-out (integer).
     :param namespace: namespace (string).
-    :return: True if pod reaches given state before given time-out (Boolean).
+    :return: True if pod reaches given state before given time-out, stderr (Boolean, string).
     """
 
     if not pod or not state:
-        return None
+        return None, 'unset pod or state'
 
+    stderr = ''
     starttime = time.time()
     now = starttime
     _state = None
@@ -274,7 +277,8 @@ def wait_until_deployment(pod=None, state=None, timeout=120, namespace=None):
 
         now = time.time()
 
-    return True if (_state and _state == state) else False
+    status = True if (_state and _state == state) else False
+    return status, stderr
 
 
 def _convert_to_dict(stdout):
@@ -670,9 +674,9 @@ def get_scheduler_ip(pod=None, timeout=480, namespace=None):
 
     scheduler_ip = ""
 
-    status = wait_until_deployment(pod=pod, state='Running', timeout=120, namespace=namespace)
+    status, stderr = wait_until_deployment(pod=pod, state='Running', timeout=120, namespace=namespace)
     if not status:
-        return scheduler_ip
+        return scheduler_ip, stderr
 
     starttime = time.time()
     now = starttime
@@ -680,10 +684,10 @@ def get_scheduler_ip(pod=None, timeout=480, namespace=None):
     first = True
     while (now - starttime < timeout):
         # get the scheduler stdout
-        status, stdout = kubectl_logs(pod=pod, namespace=namespace)
+        status, stdout, stderr = kubectl_logs(pod=pod, namespace=namespace)
         if not status or not stdout:
-            logger.warning('failed to extract scheduler IP from kubectl logs command')
-            return scheduler_ip
+            logger.warning('failed to extract scheduler IP from kubectl logs command: %s', stderr)
+            return scheduler_ip, stderr
 
         pattern = r'tcp://[0-9]+(?:\.[0-9]+){3}:[0-9]+'
         for line in stdout.split('\n'):
@@ -704,7 +708,7 @@ def get_scheduler_ip(pod=None, timeout=480, namespace=None):
             time.sleep(_sleep)
             now = time.time()
 
-    return scheduler_ip
+    return scheduler_ip, ''
 
 
 def deploy_workers(scheduler_ip, _nworkers, yaml_files, namespace, user_id, imagename, mountpath):
@@ -720,7 +724,7 @@ def deploy_workers(scheduler_ip, _nworkers, yaml_files, namespace, user_id, imag
     :param user_id: user id (string).
     :param imagename: image name (string).
     :param mountpath: FS mount path (string).
-    :return: worker info dictionary.
+    :return: worker info dictionary, stderr (dictionary, string).
     """
 
     worker_info = {}
@@ -739,31 +743,33 @@ def deploy_workers(scheduler_ip, _nworkers, yaml_files, namespace, user_id, imag
                                       user_id=user_id)
         status = write_file(worker_path, worker_yaml, mute=False)
         if not status:
-            logger.warning('cannot continue since yaml file could not be created')
-            return None
+            stderr = 'cannot continue since yaml file could not be created'
+            logger.warning(stderr)
+            return None, stderr
 
         # start the worker pod
-        status, _ = kubectl_create(filename=worker_path)
+        status, _, stderr = kubectl_create(filename=worker_path)
         if not status:
-            return None
+            return None, stderr
 
         logger.info('deployed dask-worker-%d pod', _iworker)
 
-    return worker_info
+    return worker_info, ''
 
 
-def await_worker_deployment(worker_info, namespace, timeout=120):
+def await_worker_deployment(worker_info, namespace, timeout=300):
     """
     Wait for all workers to start running.
 
     :param worker_info: worker info dictionary.
     :param namespace: namespace (string).
     :param timeout: time-out (int).
-    :return: True if all pods end up in Running state (Boolean).
+    :return: True if all pods end up in Running state (Boolean), stderr (string).
     """
 
     running_workers = []
 
+    stderr = ''
     starttime = time.time()
     now = starttime
     _state = None
@@ -773,10 +779,11 @@ def await_worker_deployment(worker_info, namespace, timeout=120):
     while processing and (now - starttime < timeout):
 
         # get the full pod info dictionary - note: not good if MANY workers
-        status, stdout = kubectl_execute(cmd='get pods', namespace=namespace)
+        status, stdout, stderr = kubectl_execute(cmd='get pods', namespace=namespace)
         if not status:
             break
 
+        # convert command output to a dictionary
         dictionary = _convert_to_dict(stdout)
 
         # get list of workers and get rid of the scheduler and workers that are already known to be running
@@ -791,7 +798,8 @@ def await_worker_deployment(worker_info, namespace, timeout=120):
             try:
                 state = dictionary[worker_name]['STATUS']
             except Exception as exc:
-                logger.warning('caught exception: %s', exc)
+                stderr = 'caught exception: %s', exc
+                logger.warning(stderr)
             else:
                 if state == 'Running':
                     running_workers.append(worker_name)
@@ -802,6 +810,6 @@ def await_worker_deployment(worker_info, namespace, timeout=120):
             time.sleep(_sleep)
             now = time.time()
 
-        logger.debug('number of running dask workers: %d', len(running_workers))
+    logger.debug('number of running dask workers: %d', len(running_workers))
 
     return status
