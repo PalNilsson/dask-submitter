@@ -128,7 +128,7 @@ def execute(executable, **kwargs):
         return exit_code, stdout, stderr
 
 
-def kubectl_create(filename=None):
+def kubectl_create(filename=None, service=False):
     """
     Execute the kubectl create command for a given yaml file.
 
@@ -139,7 +139,7 @@ def kubectl_create(filename=None):
     if not filename:
         return None
 
-    return kubectl_execute(cmd='create', filename=filename)
+    return kubectl_execute(cmd='create', filename=filename, service=service)
 
 
 def kubectl_apply(filename=None):
@@ -187,7 +187,7 @@ def kubectl_logs(pod=None, namespace=None):
     return kubectl_execute(cmd='logs', pod=pod, namespace=namespace)
 
 
-def kubectl_execute(cmd=None, filename=None, pod=None, namespace=None):
+def kubectl_execute(cmd=None, filename=None, pod=None, namespace=None, service=False):
     """
     Execute the kubectl create command for a given yaml file or pod name.
 
@@ -209,6 +209,8 @@ def kubectl_execute(cmd=None, filename=None, pod=None, namespace=None):
 
     if cmd in ['create', 'delete', 'apply']:
         execmd = 'kubectl %s -f %s' % (cmd, filename)
+        if cmd == 'create' and service:
+            execmd = execmd.replace(cmd, 'create service nodeport')
     elif cmd == 'config use-context':
         execmd = 'kubectl %s %s' % (cmd, namespace)
     else:

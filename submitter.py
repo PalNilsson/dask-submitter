@@ -156,7 +156,7 @@ class DaskSubmitter(object):
             return ''
 
         # start the dask scheduler pod
-        status, _, stderr = utilities.kubectl_create(filename=scheduler_path)
+        status, _, stderr = utilities.kubectl_create(filename=scheduler_path, service=True)
         if not status:
             return status, stderr
 
