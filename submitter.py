@@ -333,7 +333,7 @@ if __name__ == '__main__':
     #######
     from dask.distributed import Client
     try:
-        client = Client(scheduler_ip)
+        client = Client(scheduler_ip.replace('tcp://', ''))
     except IOError as exc:
         logger.warning('failed to connect to dask submitter:\n%s', exc)
         #cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
