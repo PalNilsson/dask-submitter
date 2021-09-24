@@ -250,9 +250,6 @@ if __name__ == '__main__':
     # switch context for the new namespace
     #status = utilities.kubectl_execute(cmd='config use-context', namespace='default')
 
-    # remove the single-user namespace
-    #status = utilities.kubectl_delete(filename=namespace_filename)
-
     # create scheduler yaml
     scheduler_path = os.path.join(os.getcwd(), yaml_files.get('dask-scheduler'))
     scheduler_yaml = utilities.get_scheduler_yaml(image_source="palnilsson/dask-scheduler:latest",
@@ -296,12 +293,6 @@ if __name__ == '__main__':
         cleanup(namespace=namespace, user_id=user_id, pvc=True, pv=True)
         exit(-1)
 
-    #status = utilities.kubectl_delete(filename=scheduler_path)
-    now = time.time()
-    logger.info('total running time: %d s', now - starttime)
-    cleanup(namespace=namespace, user_id=user_id, pvc=True, pv=True)
-    exit(0)
-
     pod = 'dask-pilot'
     status = utilities.wait_until_deployment(pod=pod, state='Running')
     if not status:
@@ -310,8 +301,8 @@ if __name__ == '__main__':
     else:
         logger.info('pod %s is running', pod)
 
-    # extract scheduler IP from stdout (when available)
-    # ..
+    now = time.time()
+    logger.info('total running time: %d s', now - starttime)
 
     cleanup(namespace=namespace, user_id=user_id, pvc=True, pv=True)
     exit(0)
