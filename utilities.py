@@ -520,7 +520,7 @@ spec:
       claimName: fileserver-claim
       readOnly: false
 """
-    else:
+    elif kind == 'false':
         yaml = """
 apiVersion: apps/v1
 kind: Deployment
@@ -550,6 +550,40 @@ spec:
         persistentVolumeClaim:
           claimName: fileserver-claim
           readOnly: false
+"""
+    else:
+        yaml = """
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    run: dask-scheduler
+  name: dask-scheduler
+  namespace: CHANGE_NAMESPACE
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      run: dask-scheduler
+  template:
+    metadata:
+      labels:
+        run: dask-scheduler
+    spec:
+      securityContext:
+        runAsUser: 0
+      containers:
+      - image: CHANGE_IMAGE_SOURCE
+        name: dask-scheduler
+        ports:
+        - containerPort: 8080
+        volumeMounts:
+        - name: fileserver-CHANGE_USERID
+          mountPath: CHANGE_NFS_PATH
+      volumes:
+      - name: fileserver-CHANGE_USERID
+        persistentVolumeClaim:
+          claimName: fileserver-claim
 """
     yaml = yaml.replace('CHANGE_IMAGE_SOURCE', image_source)
     yaml = yaml.replace('CHANGE_NFS_PATH', nfs_path)
