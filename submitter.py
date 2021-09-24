@@ -332,5 +332,5 @@ if __name__ == '__main__':
     # done, cleanup and exit
     now = time.time()
     logger.info('total running time: %d s', now - starttime)
-    cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
+    #cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
     exit(0)
