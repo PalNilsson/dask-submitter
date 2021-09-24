@@ -251,7 +251,7 @@ def cleanup(namespace=None, user_id=None, pvc=False, pv=False):
         logger.debug(stdout)
 
     if pvc:
-        cmd = 'kubectl patch pvc fileserver-claim -p \'{\"metadata\": {\"finalizers\": null}}\''
+        cmd = 'kubectl patch pvc fileserver-claim -p \'{\"metadata\": {\"finalizers\": null}}\' --namespace=%s' % namespace
         logger.debug('executing: %s', cmd)
         ec, stdout, stderr = utilities.execute(cmd)
         logger.debug(stdout)
@@ -329,6 +329,18 @@ if __name__ == '__main__':
         cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
         exit(-1)
     logger.info('deployed all dask-worker pods')
+
+    #######
+    from dask.distributed import Client
+    try:
+        client = Client(scheduler_ip)
+    except IOError as exc:
+        logger.warning('failed to connect to dask submitter:\n%s', exc)
+        cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
+        exit(-1)
+    else:
+        logger.info('connected client to scheduler at %s', scheduler_ip)
+    #######
 
     # deploy the pilot pod
     #status, stderr = submitter.deploy_pilot(scheduler_ip)
