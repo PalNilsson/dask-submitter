@@ -530,7 +530,6 @@ metadata:
   labels:
     app: dask-scheduler
 spec:
-  restartPolicy: Never
   replicas: 1
   selector:
     matchLabels:
@@ -545,7 +544,7 @@ spec:
         image: CHANGE_IMAGE_SOURCE
         volumeMounts:
         - mountPath: CHANGE_NFS_PATH
-        name: fileserver-CHANGE_USERID
+          name: fileserver-CHANGE_USERID
       volumes:
       - name: fileserver-CHANGE_USERID
         persistentVolumeClaim:
