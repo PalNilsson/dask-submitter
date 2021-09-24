@@ -475,7 +475,7 @@ spec:
     return yaml
 
 
-def get_scheduler_yaml(image_source=None, nfs_path=None, namespace=None, user_id=None):
+def get_scheduler_yaml(image_source=None, nfs_path=None, namespace=None, user_id=None, kind='Pod'):
     """
     Return the yaml for the Dask scheduler for a given image and the path to the shared file system.
 
@@ -499,9 +499,10 @@ def get_scheduler_yaml(image_source=None, nfs_path=None, namespace=None, user_id
         logger.warning('user id must be set')
         return ""
 
-    yaml = """
-apiVersion: apps/v1
-kind: Deployment
+    if kind == 'Pod':
+        yaml = """
+apiVersion: v1
+kind: Pod
 metadata:
   name: dask-scheduler
   namespace: CHANGE_NAMESPACE
@@ -519,7 +520,38 @@ spec:
       claimName: fileserver-claim
       readOnly: false
 """
-
+    else:
+        yaml = """
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dask-scheduler
+  namespace: CHANGE_NAMESPACE
+  labels:
+    app: dask-scheduler
+spec:
+  restartPolicy: Never
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dask-scheduler
+  template:
+    metadata:
+      labels:
+        app: dask-scheduler
+    spec:
+      containers:
+      - name: dask-scheduler
+        image: CHANGE_IMAGE_SOURCE
+        volumeMounts:
+        - mountPath: CHANGE_NFS_PATH
+        name: fileserver-CHANGE_USERID
+      volumes:
+      - name: fileserver-CHANGE_USERID
+        persistentVolumeClaim:
+          claimName: fileserver-claim
+          readOnly: false
+"""
     yaml = yaml.replace('CHANGE_IMAGE_SOURCE', image_source)
     yaml = yaml.replace('CHANGE_NFS_PATH', nfs_path)
     yaml = yaml.replace('CHANGE_NAMESPACE', namespace)
