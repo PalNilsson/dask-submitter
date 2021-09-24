@@ -18,7 +18,7 @@ from json import dump as dumpjson
 logger = logging.getLogger(__name__)
 
 
-def establish_logging(debug=True, nopilotlog=False, filename="dasksubmitter.stdout", loglevel=0):
+def establish_logging(debug=True, nopilotlog=False, filename="dask-submitter.stdout", loglevel=0):
     """
     Setup and establish logging.
 
