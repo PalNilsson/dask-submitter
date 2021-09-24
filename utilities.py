@@ -501,7 +501,7 @@ def get_scheduler_yaml(image_source=None, nfs_path=None, namespace=None, user_id
 
     yaml = """
 apiVersion: v1
-kind: Pod
+kind: Deployment
 metadata:
   name: dask-scheduler
   namespace: CHANGE_NAMESPACE
