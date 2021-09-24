@@ -54,8 +54,8 @@ class DaskSubmitter(object):
 
     _images = {
         'dask-scheduler': 'palnilsson/dask-scheduler:latest',
-        'dask-worker': '',
-        'dask-pilot': ''
+        'dask-worker': 'palnilsson/dask-worker:latest',
+        'dask-pilot': 'palnilsson/dask-pilot:latest'
     }
 
     _podnames = {
