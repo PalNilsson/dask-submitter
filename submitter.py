@@ -323,11 +323,11 @@ if __name__ == '__main__':
     logger.info('deployed all dask-worker pods')
 
     # deploy the pilot pod
-    status = submitter.deploy_pilot(scheduler_ip)
-    if not status:
-        cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
-        exit(-1)
-    logger.info('deployed pilot pod')
+    #status = submitter.deploy_pilot(scheduler_ip)
+    #if not status:
+    #    cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
+    #    exit(-1)
+    #logger.info('deployed pilot pod')
 
     # done, cleanup and exit
     now = time.time()
