@@ -219,6 +219,14 @@ class DaskSubmitter(object):
         if not status:
             logger.warning('failed to create pilot pod: %s', stderr)
             return False, stderr
+        else:
+            logger.debug('created pilot pod')
+
+            time.sleep(30)
+            cmd = 'kubectl logs dask-pilot --namespace=%s' % self._namespace
+            logger.debug('executing: %s', cmd)
+            ec, stdout, stderr = utilities.execute(cmd)
+            logger.debug(stdout)
 
         return utilities.wait_until_deployment(pod=self._podnames.get('dask-pilot'), state='Running')
 
