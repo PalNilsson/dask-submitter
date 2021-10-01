@@ -36,7 +36,7 @@ class DaskSubmitter(object):
 
     # note: all private fields can be set in init function except the _ispvc and _ispv
 
-    _nworkers = 10
+    _nworkers = 1
     _namespace = ''
     _userid = ''
     _mountpath = '/mnt/dask'
@@ -289,7 +289,7 @@ if __name__ == '__main__':
     logging.info("*** Dask submitter ***")
     logging.info("Python version %s", sys.version)
     starttime = time.time()
-    submitter = DaskSubmitter(nworkers=1)
+    submitter = DaskSubmitter(nworkers=5)
 
     # create unique name space
     status, stderr = submitter.create_namespace()
