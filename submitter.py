@@ -352,7 +352,7 @@ if __name__ == '__main__':
     logger.debug('status=%s', str(status))
     logger.debug('stderr=%s', stderr)
     # time.sleep(30)
-    cmd = 'kubectl logs dask-pilot --namespace=%s' % self._namespace
+    cmd = 'kubectl logs dask-pilot --namespace=%s' % submitter.get_namespace()
     logger.debug('executing: %s', cmd)
     ec, stdout, stderr = utilities.execute(cmd)
     logger.debug(stdout)
