@@ -712,9 +712,9 @@ spec:
     - name: DASK_SCHEDULER_IP
       value: "CHANGE_DASK_SCHEDULER_IP"
     - name: DASK_SHARED_FILESYSTEM_PATH
-      value: CHANGE_NFS_PATH
+      value: "CHANGE_NFS_PATH"
     - name: PANDA_ID
-      value: CHANGE_PANDA_ID
+      value: "CHANGE_PANDA_ID"
     volumeMounts:
     - mountPath: CHANGE_NFS_PATH
       name: fileserver-CHANGE_USERID
