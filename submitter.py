@@ -222,13 +222,7 @@ class DaskSubmitter(object):
         else:
             logger.debug('created pilot pod')
 
-            #time.sleep(30)
-            cmd = 'kubectl logs dask-pilot --namespace=%s' % self._namespace
-            logger.debug('executing: %s', cmd)
-            ec, stdout, stderr = utilities.execute(cmd)
-            logger.debug(stdout)
-
-        return utilities.wait_until_deployment(pod=self._podnames.get('dask-pilot'), state='Running')
+        return utilities.wait_until_deployment(pod=self._podnames.get('dask-pilot'), state='Running', namespace=self._namespace)
 
     def copy_bundle(self):
         """
