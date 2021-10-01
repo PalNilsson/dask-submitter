@@ -257,7 +257,7 @@ def wait_until_deployment(pod=None, state=None, timeout=120, namespace=None):
     while processing and (now - starttime < timeout):
 
         exitcode, stdout, stderr = execute("kubectl get pod %s --namespace=%s" % (pod, namespace))
-        logger.debug('stdout=%s', stdout)
+        logger.debug('stderr=%s', stderr)
         if stderr and stderr.lower().startswith('error:'):
             logger.warning('failed:\n%s', stderr)
             break
@@ -275,7 +275,7 @@ def wait_until_deployment(pod=None, state=None, timeout=120, namespace=None):
                 if first:
                     logger.info('sleeping until %s is running (timeout=%d s)', name, timeout)
                     first = False
-                time.sleep(_sleep)
+        time.sleep(_sleep)
 
         now = time.time()
 
