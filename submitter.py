@@ -289,7 +289,7 @@ if __name__ == '__main__':
     logging.info("*** Dask submitter ***")
     logging.info("Python version %s", sys.version)
     starttime = time.time()
-    submitter = DaskSubmitter(nworkers=20)
+    submitter = DaskSubmitter(nworkers=2)
 
     # create unique name space
     status, stderr = submitter.create_namespace()
@@ -333,14 +333,15 @@ if __name__ == '__main__':
 
     #######
     from dask.distributed import Client
-    #try:
-    #    client = Client(scheduler_ip.replace('tcp://', ''))
-    #except IOError as exc:
-    #    logger.warning('failed to connect to dask submitter:\n%s', exc)
-    #    #cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
-    #    exit(-1)
-    #else:
-    #    logger.info('connected client to scheduler at %s', scheduler_ip)
+    try:
+        logger.debug('using scheduler ip=%s', scheduler_ip)
+        client = Client(scheduler_ip)
+    except IOError as exc:
+        logger.warning('failed to connect to dask submitter:\n%s', exc)
+        #cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
+        exit(-1)
+    else:
+        logger.info('connected client to scheduler at %s', scheduler_ip)
     #######
 
     # deploy the pilot pod
