@@ -207,7 +207,8 @@ class DaskSubmitter(object):
                                         nfs_path=self._mountpath,
                                         namespace=self._namespace,
                                         user_id=self._userid,
-                                        scheduler_ip=scheduler_ip)
+                                        scheduler_ip=scheduler_ip,
+                                        panda_id='1234567890')
         status = utilities.write_file(path, yaml, mute=False)
         if not status:
             stderr = 'cannot continue since pilot yaml file could not be created'

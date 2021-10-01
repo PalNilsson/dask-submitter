@@ -665,7 +665,7 @@ spec:
     return yaml
 
 
-def get_pilot_yaml(image_source=None, nfs_path=None, namespace=None, scheduler_ip=None, user_id=None):
+def get_pilot_yaml(image_source=None, nfs_path=None, namespace=None, scheduler_ip=None, user_id=None, panda_id=None):
     """
     Return the yaml for the Pilot X for a given image and the path to the shared file system.
 
@@ -674,6 +674,7 @@ def get_pilot_yaml(image_source=None, nfs_path=None, namespace=None, scheduler_i
     :param namespace: namespace (string).
     :param scheduler_ip: dask scheduler IP (string).
     :param user_id: user id (string).
+    :param panda_id: PanDA id (string).
     :return: yaml (string).
     """
 
@@ -692,6 +693,9 @@ def get_pilot_yaml(image_source=None, nfs_path=None, namespace=None, scheduler_i
     if not user_id:
         logger.warning('user id must be set')
         return ""
+    if not panda_id:
+        logger.warning('PanDA id must be set')
+        return ""
 
     yaml = """
 apiVersion: v1
@@ -709,6 +713,8 @@ spec:
       value: "CHANGE_DASK_SCHEDULER_IP"
     - name: DASK_SHARED_FILESYSTEM_PATH
       value: CHANGE_NFS_PATH
+    - name: PANDA_ID
+      value: CHANGE_PANDA_ID
     volumeMounts:
     - mountPath: CHANGE_NFS_PATH
       name: fileserver-CHANGE_USERID
@@ -722,6 +728,7 @@ spec:
     yaml = yaml.replace('CHANGE_IMAGE_SOURCE', image_source)
     yaml = yaml.replace('CHANGE_DASK_SCHEDULER_IP', scheduler_ip)
     yaml = yaml.replace('CHANGE_NFS_PATH', nfs_path)
+    yaml = yaml.replace('CHANGE_PANDA_ID', panda_id)
     yaml = yaml.replace('CHANGE_NAMESPACE', namespace)
     yaml = yaml.replace('CHANGE_USERID', user_id)
 
