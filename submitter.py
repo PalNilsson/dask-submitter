@@ -289,7 +289,7 @@ if __name__ == '__main__':
     logging.info("*** Dask submitter ***")
     logging.info("Python version %s", sys.version)
     starttime = time.time()
-    submitter = DaskSubmitter(nworkers=5)
+    submitter = DaskSubmitter(nworkers=20)
 
     # create unique name space
     status, stderr = submitter.create_namespace()
