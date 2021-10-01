@@ -222,7 +222,7 @@ class DaskSubmitter(object):
         else:
             logger.debug('created pilot pod')
 
-            time.sleep(30)
+            #time.sleep(30)
             cmd = 'kubectl logs dask-pilot --namespace=%s' % self._namespace
             logger.debug('executing: %s', cmd)
             ec, stdout, stderr = utilities.execute(cmd)
