@@ -348,6 +348,15 @@ if __name__ == '__main__':
 
     # deploy the pilot pod
     status, stderr = submitter.deploy_pilot(scheduler_ip)
+
+    logger.debug('status=%s', str(status))
+    logger.debug('stderr=%s', stderr)
+    # time.sleep(30)
+    cmd = 'kubectl logs dask-pilot --namespace=%s' % self._namespace
+    logger.debug('executing: %s', cmd)
+    ec, stdout, stderr = utilities.execute(cmd)
+    logger.debug(stdout)
+
     if not status:
         cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
         exit(-1)
