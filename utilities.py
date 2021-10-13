@@ -521,7 +521,7 @@ spec:
       claimName: fileserver-claim
       readOnly: false
 """
-    elif kind == 'false':
+    elif kind == 'Deployment':
         yaml = """
 apiVersion: apps/v1
 kind: Deployment
@@ -534,12 +534,14 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      app: dask-scheduler
+      run: dask-scheduler
   template:
     metadata:
       labels:
-        app: dask-scheduler
+        run: dask-scheduler
     spec:
+      securityContext:
+        runAsUser: 0
       containers:
       - name: dask-scheduler
         image: CHANGE_IMAGE_SOURCE

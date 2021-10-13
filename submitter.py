@@ -150,7 +150,7 @@ class DaskSubmitter(object):
                                                       nfs_path=self._mountpath,
                                                       namespace=self._namespace,
                                                       user_id=self._userid,
-                                                      kind='Pod')
+                                                      kind='Deployment')
         status = utilities.write_file(scheduler_path, scheduler_yaml, mute=False)
         if not status:
             logger.warning('cannot continue since yaml file could not be created')
