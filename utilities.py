@@ -229,7 +229,7 @@ def kubectl_execute(cmd=None, filename=None, pod=None, namespace=None):
     return status, stdout, stderr
 
 
-def wait_until_deployment(pod=None, state=None, timeout=120, namespace=None):
+def wait_until_deployment(pod=None, state=None, timeout=120, namespace=None, deployment=None):
     """
     Wait until a given pod is in running state.
 
@@ -253,10 +253,15 @@ def wait_until_deployment(pod=None, state=None, timeout=120, namespace=None):
     _sleep = 5
     first = True
     processing = True
-    logger.info('waiting for pod %s', pod)
+    name = 'deployment' if deployment else 'pod'
+    logger.info('waiting for %s %s', name, pod)
+
     while processing and (now - starttime < timeout):
 
-        exitcode, stdout, stderr = execute("kubectl get pod %s --namespace=%s" % (pod, namespace))
+        exitcode, stdout, stderr = execute("kubectl get %s %s --namespace=%s" % (name, pod, namespace))
+        logger.debug(exitcode)
+        logger.debug(stdout)
+        logger.debug(stderr)
         if stderr and stderr.lower().startswith('error'):
             logger.warning('failed:\n%s', stderr)
             break
