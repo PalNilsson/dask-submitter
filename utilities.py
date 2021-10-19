@@ -294,6 +294,7 @@ def wait_until_deployment(name=None, state=None, timeout=120, namespace=None, de
                     port_number = re.findall(port_pattern, _port)
                     if port_number and _external_ip:
                         _external_ip += ':%s' % port_number[0]
+                        processing = False
                         break
                 if first:
                     logger.info('sleeping until %s is running (timeout=%d s)', _name, timeout)
