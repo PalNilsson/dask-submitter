@@ -5,7 +5,7 @@ It serves as a template for later Harvester integration.
 
 ### Preliminaries
 
-Google Cloud commands (read: kubectl) are expected be available.
+Google Cloud commands (kubectl) are expected be available.
 
 ### Operations
 
@@ -13,9 +13,10 @@ The script performs the following operations
 
 1. Creation of unique namespace
 2. Creation of PVC and PV for the new namespace
-3. Start-up of dask scheduler using external image
-4. Start-up of required number of dask workers using external image
-5. Start-up of pilot pod using external image
+3. Creation of a dask scheduler service with a load balancer
+4. Start-up of dask scheduler deployment using external image
+5. Start-up of required number of dask workers using external image
+6. Start-up of pilot pod using external image
 
 The name of the namespace is "single-user-<user id>", where the user id is
 a five char long random letter string, used by all relevant operations.
