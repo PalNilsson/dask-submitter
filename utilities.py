@@ -262,7 +262,8 @@ def wait_until_deployment(name=None, state=None, timeout=120, namespace=None, de
     port_pattern = r'([0-9]+)\:.'  # e.g. 80:30525/TCP
     while processing and (now - starttime < timeout):
 
-        cmd = "kubectl get %s %s --namespace=%s" % (podtype, name, namespace)
+        resource = 'services' if 'svc' in name else name
+        cmd = "kubectl get %s %s --namespace=%s" % (podtype, resource, namespace)
         logger.debug('executing cmd=\'%s\'', cmd)
         exitcode, stdout, stderr = execute(cmd)
         logger.debug(exitcode)
