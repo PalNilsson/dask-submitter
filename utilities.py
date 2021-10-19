@@ -531,8 +531,8 @@ spec:
     targetPort: CHANGE_TARGETPORT
 """
 
-    yaml = yaml.replace('CHANGE_PORT', port)
-    yaml = yaml.replace('CHANGE_TARGETPORT', targetport)
+    yaml = yaml.replace('CHANGE_PORT', str(port))
+    yaml = yaml.replace('CHANGE_TARGETPORT', str(targetport))
     yaml = yaml.replace('CHANGE_NAMESPACE', namespace)
 
     return yaml
