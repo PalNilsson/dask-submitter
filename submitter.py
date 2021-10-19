@@ -44,6 +44,7 @@ class DaskSubmitter(object):
     _ispv = False  # set when PV is successfully created
 
     _files = {
+        'dask-scheduler-service': 'dask-scheduler-service.yaml',
         'dask-scheduler': 'dask-scheduler-deployment.yaml',
         'dask-worker': 'dask-worker-deployment-%d.yaml',
         'dask-pilot': 'dask-pilot-deployment.yaml',
@@ -59,6 +60,7 @@ class DaskSubmitter(object):
     }
 
     _podnames = {
+        'dask-scheduler-service': 'dask-scheduler-svc',
         'dask-scheduler': 'dask-scheduler',
         'dask-worker': 'dask-worker',
         'dask-pilot': 'dask-pilot',
@@ -198,7 +200,7 @@ class DaskSubmitter(object):
         Deploy the pilot pod.
 
         :param scheduler_ip: dash scheduler IP (string).
-        :return: True if successful (Boolean), stderr (string).
+        :return: True if successful (Boolean), [None], stderr (string).
         """
 
         # create pilot yaml
@@ -223,7 +225,7 @@ class DaskSubmitter(object):
         else:
             logger.debug('created pilot pod')
 
-        return utilities.wait_until_deployment(pod=self._podnames.get('dask-pilot'), state='Running', namespace=self._namespace)
+        return utilities.wait_until_deployment(name=self._podnames.get('dask-pilot'), state='Running', namespace=self._namespace)
 
     def copy_bundle(self):
         """
@@ -235,6 +237,37 @@ class DaskSubmitter(object):
         status = True
 
         return status
+
+    def create_service(self):
+        """
+        Create dask-scheduler service yaml and start it.
+        The function waits for the load balancer to expose the external IP and returns it.
+
+        :return: external IP from load balancer (string), stderr (string)
+        """
+
+        _external_ip = ''
+        _stderr = ''
+
+        path = os.path.join(os.getcwd(), self._files.get('dask-scheduler-service'))
+        yaml = utilities.get_service_yaml(namespace=self._namespace)
+        status = utilities.write_file(path, yaml, mute=False)
+        if not status:
+            _stderr = 'cannot continue since dask-scheduler service yaml file could not be created'
+            logger.warning(_stderr)
+            return _external_ip, _stderr
+
+        # start the dask-scheduler service
+        status, _, _stderr = utilities.kubectl_create(filename=path)
+        if not status:
+            logger.warning('failed to create pilot pod: %s', _stderr)
+            return _external_ip, _stderr
+        else:
+            logger.debug('created dask-scheduler service')
+
+        status, _external_ip, _stderr = utilities.wait_until_deployment(name=self._podnames.get('dask-scheduler-service'), namespace=self._namespace)
+
+        return _external_ip, _stderr
 
 
 def cleanup(namespace=None, user_id=None, pvc=False, pv=False):
@@ -315,7 +348,15 @@ if __name__ == '__main__':
     # create the dask scheduler service with a load balancer (the external IP of the load balancer will be made
     # available to the caller)
     # [wait until external IP is available]
-    # external_ip, stderr = submitter.create_service()
+    external_ip, stderr = submitter.create_service()
+    if not external_ip:
+        logger.warning('failed to deploy dask scheduler load balancer (external IP not returned): %s', stderr)
+        cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
+        exit(-1)
+
+    logger.info('got external ip=%s', external_ip)
+    cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
+    exit(-1)
 
     # deploy the dask scheduler (the scheduler IP will only be available from within the cluster)
     scheduler_ip, stderr = submitter.deploy_dask_scheduler()
@@ -353,7 +394,7 @@ if __name__ == '__main__':
     #######
 
     # deploy the pilot pod
-    status, stderr = submitter.deploy_pilot(scheduler_ip)
+    status, _, stderr = submitter.deploy_pilot(scheduler_ip)
 
     logger.debug('status=%s', str(status))
     logger.debug('stderr=%s', stderr)

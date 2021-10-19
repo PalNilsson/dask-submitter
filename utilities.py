@@ -229,24 +229,26 @@ def kubectl_execute(cmd=None, filename=None, pod=None, namespace=None):
     return status, stdout, stderr
 
 
-def wait_until_deployment(pod=None, state=None, timeout=120, namespace=None, deployment=False):
+def wait_until_deployment(name=None, state=None, timeout=120, namespace=None, deployment=False):
     """
-    Wait until a given pod is in running state.
+    Wait until a given pod or service is in running state.
+    In case the service has an external IP, return it.
 
-    Example: pod=dask-pilot, status='Running', timeout=120. Function will wait a maximum of 120 s for the
+    Example: name=dask-pilot, state='Running', timeout=120. Function will wait a maximum of 120 s for the
     dask-pilot pod to reach Running state.
 
-    :param pod: pod name (string).
-    :param state: required status (string).
+    :param name: pod or service name (string).
+    :param state: optional pod status (string).
     :param timeout: time-out (integer).
     :param namespace: namespace (string).
     :param deployment: True for deployments (Boolean).
-    :return: True if pod reaches given state before given time-out, stderr (Boolean, string).
+    :return: True if pod reaches given state before given time-out (Boolean), external IP (string), stderr (string).
     """
 
-    if not pod or not state:
-        return None, 'unset pod or state'
+    if not name:
+        return None, 'unset pod/service'
 
+    _external_ip = None
     stderr = ''
     starttime = time.time()
     now = starttime
@@ -255,11 +257,12 @@ def wait_until_deployment(pod=None, state=None, timeout=120, namespace=None, dep
     first = True
     processing = True
     podtype = 'deployment' if deployment else 'pod'
-    logger.info('waiting for %s %s', podtype, pod)
-
+    podtype = '' if 'svc' in name else podtype  # do not specify podtype for a service
+    ip_pattern = r'[0-9]+(?:\.[0-9]+){3}'  # e.g. 1.2.3.4
+    port_pattern = r'([0-9]+)\:.'  # e.g. 80:30525/TCP
     while processing and (now - starttime < timeout):
 
-        exitcode, stdout, stderr = execute("kubectl get %s %s --namespace=%s" % (podtype, pod, namespace))
+        exitcode, stdout, stderr = execute("kubectl get %s %s --namespace=%s" % (podtype, name, namespace))
         logger.debug(exitcode)
         logger.debug(stdout)
         logger.debug(stderr)
@@ -269,23 +272,35 @@ def wait_until_deployment(pod=None, state=None, timeout=120, namespace=None, dep
 
         dictionary = _convert_to_dict(stdout)
         if dictionary:
-            for name in dictionary:
-                _dic = dictionary.get(name)
+            for _name in dictionary:  # e.g. _name = dask-scheduler-svc, kubernetes
+                _dic = dictionary.get(_name)
                 if 'STATUS' in _dic:
                     _state = _dic.get('STATUS')
                     if _state == state:
-                        logger.info('%s is running', name)
+                        logger.info('%s is running', _name)
                         processing = False
                         break
+                if 'EXTERNAL-IP' in _dic and name == _name:  # only look at the load balancer info (dask-scheduler-svc)
+                    _ip = _dic.get('EXTERNAL-IP')
+                    ip_number = re.findall(ip_pattern, _ip)
+                    if ip_number:
+                        _external_ip = ip_number[0]
+                        # add the port (e.g. PORT(S)=80:30525/TCP)
+                if 'PORT(S)' in _dic and name == _name:
+                    _port = _dic.get('PORT(S)')
+                    port_number = re.findall(port_pattern, _port)
+                    if port_number and _external_ip:
+                        _external_ip += ':%s' % port_number[0]
+                        break
                 if first:
-                    logger.info('sleeping until %s is running (timeout=%d s)', name, timeout)
+                    logger.info('sleeping until %s is running (timeout=%d s)', _name, timeout)
                     first = False
         time.sleep(_sleep)
 
         now = time.time()
 
     status = True if (_state and _state == state) else False
-    return status, stderr
+    return status, _external_ip, stderr
 
 
 def _convert_to_dict(stdout):
@@ -406,11 +421,12 @@ def write_file(path, contents, mute=True, mode='w', unique=False):
     return status
 
 
-def get_pv_yaml(namespace=None, user_id=None):
+def get_pv_yaml(namespace=None, user_id=None, nfs_server='10.226.152.66'):
     """
 
     :param namespace: namespace (string).
     :param user_id: user id (string).
+    :param nfs_server: NFS server IP (string).
     :return: yaml (string).
     """
 
@@ -433,12 +449,13 @@ spec:
   accessModes:
     - ReadWriteMany
   nfs:
-    server: 10.226.152.66
+    server: CHANGE_NFSSERVER
     path: "/vol1"
 """
 
     yaml = yaml.replace('CHANGE_USERID', user_id)
     yaml = yaml.replace('CHANGE_NAMESPACE', namespace)
+    yaml = yaml.replace('CHANGE_NFSSERVER', nfs_server)
 
     return yaml
 
@@ -474,9 +491,48 @@ spec:
   volumeName: fileserver-CHANGE_USERID
   resources:
     requests:
-      storage: 200Gi"""
+      storage: 200Gi
+"""
 
     yaml = yaml.replace('CHANGE_USERID', user_id)
+    yaml = yaml.replace('CHANGE_NAMESPACE', namespace)
+
+    return yaml
+
+
+def get_service_yaml(namespace=None, port=80, targetport=8786):
+    """
+    Return the yaml for the dask-scheduler load balancer service.
+
+    :param namespace: namespace (string).
+    :param port: port (int).
+    :param targetport: target port (default dask scheduler port, 8786) (int).
+    :return: yaml (string).
+    """
+
+    if not namespace:
+        logger.warning('namespace must be set')
+        return ""
+
+    yaml = """
+apiVersion: v1
+kind: Service
+metadata:
+  name: dask-scheduler-svc
+  namespace: CHANGE_NAMESPACE
+spec:
+  type: LoadBalancer
+  selector:
+    app: dask-scheduler
+    env: prod
+  ports:
+  - protocol: TCP
+    port: CHANGE_PORT
+    targetPort: CHANGE_TARGETPORT
+"""
+
+    yaml = yaml.replace('CHANGE_PORT', port)
+    yaml = yaml.replace('CHANGE_TARGETPORT', targetport)
     yaml = yaml.replace('CHANGE_NAMESPACE', namespace)
 
     return yaml
@@ -755,7 +811,7 @@ def get_scheduler_ip(pod=None, timeout=480, namespace=None):
 
     scheduler_ip = ""
 
-    status, stderr = wait_until_deployment(pod=pod, state='Running', timeout=120, namespace=namespace, deployment=True)
+    status, _, stderr = wait_until_deployment(name=pod, state='Running', timeout=120, namespace=namespace, deployment=True)
     if not status:
         return scheduler_ip, stderr
 
