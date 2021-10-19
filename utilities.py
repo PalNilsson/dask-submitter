@@ -264,11 +264,11 @@ def wait_until_deployment(name=None, state=None, timeout=120, namespace=None, de
 
         resource = 'services' if 'svc' in name else name
         cmd = "kubectl get %s %s --namespace=%s" % (podtype, resource, namespace)
-        logger.debug('executing cmd=\'%s\'', cmd)
+        #logger.debug('executing cmd=\'%s\'', cmd)
         exitcode, stdout, stderr = execute(cmd)
-        logger.debug(exitcode)
-        logger.debug(stdout)
-        logger.debug(stderr)
+        #logger.debug(exitcode)
+        #logger.debug(stdout)
+        #logger.debug(stderr)
         if stderr and stderr.lower().startswith('error'):
             logger.warning('failed:\n%s', stderr)
             break

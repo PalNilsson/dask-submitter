@@ -353,10 +353,7 @@ if __name__ == '__main__':
         logger.warning('failed to deploy dask scheduler load balancer (external IP not returned): %s', stderr)
         cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
         exit(-1)
-
-    logger.info('got external ip=%s', external_ip)
-    cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
-    exit(-1)
+    logger.info('deployed load balancer with external ip=%s', external_ip)
 
     # deploy the dask scheduler (the scheduler IP will only be available from within the cluster)
     scheduler_ip, stderr = submitter.deploy_dask_scheduler()
