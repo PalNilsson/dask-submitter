@@ -312,7 +312,12 @@ if __name__ == '__main__':
             exit(-1)
     logger.info('created PVC and PV')
 
-    # deploy the dask scheduler
+    # create the dask scheduler service with a load balancer (the external IP of the load balancer will be made
+    # available to the caller)
+    # [wait until external IP is available]
+    # external_ip, stderr = submitter.create_service()
+
+    # deploy the dask scheduler (the scheduler IP will only be available from within the cluster)
     scheduler_ip, stderr = submitter.deploy_dask_scheduler()
     if not scheduler_ip:
         logger.warning('failed to deploy dask scheduler: %s', stderr)
