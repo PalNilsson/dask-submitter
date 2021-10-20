@@ -229,6 +229,37 @@ def kubectl_execute(cmd=None, filename=None, pod=None, namespace=None):
     return status, stdout, stderr
 
 
+def get_pod_name(namespace=None, pattern=r'(dask\-scheduler\-.+)'):
+    """
+    Find the name of the pod for the given name pattern in the output from the 'kubectl get pods' command.
+    Note: this is intended for findout out the dask-scheduler name. It will not work for dask-workers since there
+    will be multiple will similar names (dask-worker-<number>). There is only one scheduler.
+
+    :param namespace: current namespace (string).
+    :param pattern: pod name pattern (raw string).
+    :return: pod name (string).
+    """
+
+    podname = ''
+
+    cmd = 'kubectl get pods --namespace %s' % namespace
+    exitcode, stdout, stderr = execute(cmd)
+
+    if stderr:
+        logger.warning('failed:\n%s', stderr)
+        return podname
+    dictionary = _convert_to_dict(stdout)
+
+    if dictionary:
+        for name in dictionary:
+            _name = re.findall(pattern, name)
+            if _name:
+                podname = _name[0]
+                break
+
+    return podname
+
+
 def wait_until_deployment(name=None, state=None, timeout=120, namespace=None, deployment=False):
     """
     Wait until a given pod or service is in running state.
@@ -815,7 +846,7 @@ def get_scheduler_ip(pod=None, timeout=480, namespace=None):
 
     scheduler_ip = ""
 
-    status, _, stderr = wait_until_deployment(name=pod, state='Running', timeout=120, namespace=namespace, deployment=True)
+    status, _, stderr = wait_until_deployment(name=pod, state='Running', timeout=120, namespace=namespace, deployment=False)
     if not status:
         return scheduler_ip, stderr
 
