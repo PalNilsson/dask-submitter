@@ -557,12 +557,12 @@ def get_service_yaml(namespace=None, name=None, port=80, targetport=8786):
 apiVersion: v1
 kind: Service
 metadata:
-  name: CHANGE_NAME
+  name: CHANGE_SERVICENAME
   namespace: CHANGE_NAMESPACE
 spec:
   type: LoadBalancer
   selector:
-    app: CHANGE_NAME
+    app: CHANGE_SERVICENAME
     env: prod
   ports:
   - protocol: TCP
@@ -570,7 +570,7 @@ spec:
     targetPort: CHANGE_TARGETPORT
 """
 
-    yaml = yaml.replace('CHANGE_NAME', name)
+    yaml = yaml.replace('CHANGE_SERVICENAME', name)
     yaml = yaml.replace('CHANGE_PORT', str(port))
     yaml = yaml.replace('CHANGE_TARGETPORT', str(targetport))
     yaml = yaml.replace('CHANGE_NAMESPACE', namespace)
