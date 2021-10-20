@@ -846,6 +846,7 @@ def get_scheduler_ip(pod=None, timeout=480, namespace=None):
 
     scheduler_ip = ""
 
+    pod = get_pod_name(namespace=namespace)
     status, _, stderr = wait_until_deployment(name=pod, state='Running', timeout=120, namespace=namespace, deployment=False)
     if not status:
         return scheduler_ip, stderr
