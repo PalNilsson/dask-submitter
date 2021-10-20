@@ -252,7 +252,10 @@ class DaskSubmitter(object):
         _stderr = ''
 
         path = os.path.join(os.getcwd(), self._files.get('dask-scheduler-service'))
-        yaml = utilities.get_service_yaml(namespace=self._namespace)
+        yaml = utilities.get_service_yaml(namespace=self._namespace,
+                                          name=self._podnames.get('dask-scheduler-service'),
+                                          port=80,
+                                          targetport=8786)
         status = utilities.write_file(path, yaml, mute=False)
         if not status:
             _stderr = 'cannot continue since dask-scheduler service yaml file could not be created'
@@ -392,11 +395,11 @@ if __name__ == '__main__':
     #    logger.info('connected client to scheduler at %s', scheduler_ip)
     #######
 
+    cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
+
     # deploy the pilot pod
     status, _, stderr = submitter.deploy_pilot(scheduler_ip)
 
-    logger.debug('status=%s', str(status))
-    logger.debug('stderr=%s', stderr)
     # time.sleep(30)
     cmd = 'kubectl logs dask-pilot --namespace=%s' % submitter.get_namespace()
     logger.debug('executing: %s', cmd)
