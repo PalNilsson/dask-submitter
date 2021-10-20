@@ -834,22 +834,21 @@ spec:
     return yaml
 
 
-def get_scheduler_ip(pod=None, timeout=480, namespace=None):
+def get_scheduler_info(timeout=480, namespace=None):
     """
-    Wait for the scheduler to start, then grab the scheduler IP from the stdout.
+    Wait for the scheduler to start, then grab the scheduler IP from the stdout and its proper pod name.
 
-    :param pod: pod name (string).
     :param timeout: time-out (integer).
     :param namespace: namespace (string).
-    :return: scheduler IP (string).
+    :return: scheduler IP (string), pod name (string), stderr (string).
     """
 
     scheduler_ip = ""
 
-    pod = get_pod_name(namespace=namespace)
-    status, _, stderr = wait_until_deployment(name=pod, state='Running', timeout=120, namespace=namespace, deployment=False)
+    podname = get_pod_name(namespace=namespace)
+    status, _, stderr = wait_until_deployment(name=podname, state='Running', timeout=120, namespace=namespace, deployment=False)
     if not status:
-        return scheduler_ip, stderr
+        return scheduler_ip, podname, stderr
 
     starttime = time.time()
     now = starttime
@@ -857,10 +856,10 @@ def get_scheduler_ip(pod=None, timeout=480, namespace=None):
     first = True
     while (now - starttime < timeout):
         # get the scheduler stdout
-        status, stdout, stderr = kubectl_logs(pod=pod, namespace=namespace)
+        status, stdout, stderr = kubectl_logs(pod=podname, namespace=namespace)
         if not status or not stdout:
             logger.warning('failed to extract scheduler IP from kubectl logs command: %s', stderr)
-            return scheduler_ip, stderr
+            return scheduler_ip, podname, stderr
 
         pattern = r'tcp://[0-9]+(?:\.[0-9]+){3}:[0-9]+'
         for line in stdout.split('\n'):
@@ -881,7 +880,7 @@ def get_scheduler_ip(pod=None, timeout=480, namespace=None):
             time.sleep(_sleep)
             now = time.time()
 
-    return scheduler_ip, ''
+    return scheduler_ip, podname, ''
 
 
 def deploy_workers(scheduler_ip, _nworkers, yaml_files, namespace, user_id, imagename, mountpath):
@@ -930,13 +929,14 @@ def deploy_workers(scheduler_ip, _nworkers, yaml_files, namespace, user_id, imag
     return worker_info, ''
 
 
-def await_worker_deployment(worker_info, namespace, timeout=300):
+def await_worker_deployment(worker_info, scheduler_pod_name, namespace, timeout=300):
     """
     Wait for all workers to start running.
 
     :param worker_info: worker info dictionary.
     :param namespace: namespace (string).
-    :param timeout: time-out (int).
+    :param scheduler_pod_name: pod name for scheduler (string).
+    :param timeout: optional time-out (int).
     :return: True if all pods end up in Running state (Boolean), stderr (string).
     """
 
@@ -961,7 +961,7 @@ def await_worker_deployment(worker_info, namespace, timeout=300):
 
         # get list of workers and get rid of the scheduler and workers that are already known to be running
         workers_list = list(dictionary.keys())
-        workers_list.remove('dask-scheduler')
+        workers_list.remove(scheduler_pod_name)
         for running_worker in running_workers:
             workers_list.remove(running_worker)
 

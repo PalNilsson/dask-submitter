@@ -143,7 +143,7 @@ class DaskSubmitter(object):
         """
         Deploy the dask scheduler and return its IP.
 
-        :return: scheduler IP if successful, stderr (string, string).
+        :return: scheduler IP (string), scheduler pod name (string), stderr (string).
         """
 
         # create scheduler yaml
@@ -155,22 +155,24 @@ class DaskSubmitter(object):
                                                       kind='Deployment')
         status = utilities.write_file(scheduler_path, scheduler_yaml, mute=False)
         if not status:
-            logger.warning('cannot continue since yaml file could not be created')
-            return ''
+            stderr = 'cannot continue since yaml file could not be created'
+            logger.warning(stderr)
+            return '', '', stderr
 
         # start the dask scheduler pod
         status, _, stderr = utilities.kubectl_create(filename=scheduler_path)
         if not status:
-            return status, stderr
+            return status, '', stderr
 
         # extract scheduler IP from stdout (when available)
-        return utilities.get_scheduler_ip(pod=self._podnames.get('dask-scheduler'), namespace=self._namespace)
+        return utilities.get_scheduler_info(namespace=self._namespace)
 
-    def deploy_dask_workers(self, scheduler_ip):
+    def deploy_dask_workers(self, scheduler_ip, scheduler_pod_name):
         """
         Deploy all dask workers.
 
         :param scheduler_ip: dask scheduler IP (string).
+        :param scheduler_pod_name: pod name for scheduler (string).
         :return: True if successful, stderr (Boolean, string)
         """
 
@@ -187,7 +189,7 @@ class DaskSubmitter(object):
 
         # wait for the worker pods to start
         try:
-            status = utilities.await_worker_deployment(worker_info, self._namespace)
+            status = utilities.await_worker_deployment(worker_info, scheduler_pod_name, self._namespace)
         except Exception as exc:
             stderr = 'caught exception: %s', exc
             logger.warning(stderr)
@@ -356,12 +358,12 @@ if __name__ == '__main__':
     logger.info('deployed load balancer with external ip=%s', external_ip)
 
     # deploy the dask scheduler (the scheduler IP will only be available from within the cluster)
-    scheduler_ip, stderr = submitter.deploy_dask_scheduler()
+    scheduler_ip, scheduler_pod_name, stderr = submitter.deploy_dask_scheduler()
     if not scheduler_ip:
         logger.warning('failed to deploy dask scheduler: %s', stderr)
         cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
         exit(-1)
-    logger.info('deployed dask-scheduler pod')
+    logger.info('deployed %s pod', scheduler_pod_name)
 
     # switch context for the new namespace
     #status = utilities.kubectl_execute(cmd='config use-context', namespace=namespace)
@@ -370,7 +372,7 @@ if __name__ == '__main__':
     #status = utilities.kubectl_execute(cmd='config use-context', namespace='default')
 
     # deploy the worker pods
-    status, stderr = submitter.deploy_dask_workers(scheduler_ip)
+    status, stderr = submitter.deploy_dask_workers(scheduler_ip, scheduler_pod_name)
     if not status:
         logger.warning('failed to deploy dask workers: %s', stderr)
         cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
