@@ -14,7 +14,9 @@ The script performs the following operations
 1. Creation of unique namespace
 2. Creation of PVC and PV for the new namespace
 3. Creation of a dask scheduler service with a load balancer
-4. Start-up of dask scheduler deployment using external image
+4. Creation of a jupyterlab service with a load balancer
+5. Start-up of dask scheduler deployment using external image
+6. Start-up of jupyterlab deployment using external image
 5. Start-up of required number of dask workers using external image
 6. Start-up of pilot pod using external image
 

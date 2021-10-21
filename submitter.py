@@ -48,6 +48,8 @@ class DaskSubmitter(object):
         'dask-scheduler': 'dask-scheduler-deployment.yaml',
         'dask-worker': 'dask-worker-deployment-%d.yaml',
         'dask-pilot': 'dask-pilot-deployment.yaml',
+        'jupyterlab-service': 'jupyterlab-service.yaml',
+        'jupyterlab': 'jupyterlab-deployment.yaml',
         'namespace': 'namespace.json',
         'pvc': 'pvc.yaml',
         'pv': 'pv.yaml',
@@ -56,7 +58,8 @@ class DaskSubmitter(object):
     _images = {
         'dask-scheduler': 'palnilsson/dask-scheduler:latest',
         'dask-worker': 'palnilsson/dask-worker:latest',
-        'dask-pilot': 'palnilsson/dask-pilot:latest'
+        'dask-pilot': 'palnilsson/dask-pilot:latest',
+        'jupyterlab': 'jupyter/datascience-notebook:latest',
     }
 
     _podnames = {
@@ -64,7 +67,13 @@ class DaskSubmitter(object):
         'dask-scheduler': 'dask-scheduler',
         'dask-worker': 'dask-worker',
         'dask-pilot': 'dask-pilot',
+        'jupyterlab-service': 'jupyterlab-svc',
+        'jupyterlab': 'jupyterlab',
     }
+
+    # { name: [port, targetPort], .. }
+    _ports = {'dask-scheduler-service': [80, 8786],
+              'jupyterlab-service': [80, 8888]}
 
     def __init__(self, **kwargs):
         """
@@ -78,6 +87,18 @@ class DaskSubmitter(object):
         self._namespace = kwargs.get('namespace', 'single-user-%s' % self._userid)
         self._files = kwargs.get('files', self._files)
         self._images = kwargs.get('images', self._images)
+
+    def get_ports(self, servicename):
+        """
+        Return the port and targetport for a given server name.
+
+        Format: [port, targetPort]
+
+        :param servicename: service name (string),
+        :return: ports (list).
+        """
+
+        return self._ports.get(servicename, 'unknown')
 
     def get_userid(self):
         """
@@ -106,7 +127,7 @@ class DaskSubmitter(object):
         :return: True if successful, stderr (Boolean, string).
         """
 
-        namespace_filename = os.path.join(os.getcwd(), self._files.get('namespace'))
+        namespace_filename = os.path.join(os.getcwd(), self._files.get('namespace', 'unknown'))
         return utilities.create_namespace(self._namespace, namespace_filename)
 
     def create_pvcpv(self, name='pvc'):
@@ -123,7 +144,7 @@ class DaskSubmitter(object):
             return False, stderr
 
         # create the yaml file
-        path = os.path.join(os.path.join(os.getcwd(), self._files.get(name)))
+        path = os.path.join(os.path.join(os.getcwd(), self._files.get(name, 'unknown')))
         func = utilities.get_pvc_yaml if name == 'pvc' else utilities.get_pv_yaml
         yaml = func(namespace=self._namespace, user_id=self._userid)
         status = utilities.write_file(path, yaml)
@@ -139,33 +160,55 @@ class DaskSubmitter(object):
 
         return status, stderr
 
-    def deploy_dask_scheduler(self):
+    def deploy_service_pod(self, name):
         """
-        Deploy the dask scheduler and return its IP.
+        Deploy the dask scheduler.
 
-        :return: scheduler IP (string), scheduler pod name (string), stderr (string).
+        :param name: service name (string).
+        :return: stderr (string).
         """
 
-        # create scheduler yaml
-        scheduler_path = os.path.join(os.getcwd(), self._files.get('dask-scheduler'))
-        scheduler_yaml = utilities.get_scheduler_yaml(image_source=self._images.get('dask-scheduler'),
-                                                      nfs_path=self._mountpath,
-                                                      namespace=self._namespace,
-                                                      user_id=self._userid,
-                                                      kind='Deployment')
-        status = utilities.write_file(scheduler_path, scheduler_yaml, mute=False)
-        if not status:
-            stderr = 'cannot continue since yaml file could not be created'
+        fname = self._files.get(name, 'unknown')
+        if fname == 'unknown':
+            stderr = 'unknown file name for %s yaml' % name
             logger.warning(stderr)
-            return '', '', stderr
+            return stderr
+        image = self._images.get(name, 'unknown')
+        if image == 'unknown':
+            stderr = 'unknown image for %s pod' % name
+            logger.warning(stderr)
+            return stderr
+
+        # create yaml
+        func = utilities.get_scheduler_yaml if name == 'dask-scheduler' else utilities.get_jupyterlab_yaml
+        path = os.path.join(os.getcwd(), fname)
+        yaml = func(image_source=image,
+                    nfs_path=self._mountpath,
+                    namespace=self._namespace,
+                    user_id=self._userid,
+                    port=self.get_ports(name)[0])
+        status = utilities.write_file(path, yaml, mute=False)
+        if not status:
+            stderr = 'cannot continue since file %s could not be created' % path
+            logger.warning(stderr)
+            return stderr
 
         # start the dask scheduler pod
-        status, _, stderr = utilities.kubectl_create(filename=scheduler_path)
+        status, _, stderr = utilities.kubectl_create(filename=path)
         if not status:
-            return status, '', stderr
+            return stderr
 
-        # extract scheduler IP from stdout (when available)
-        return utilities.get_scheduler_info(namespace=self._namespace)
+        return ""
+
+    def get_service_info(self, podname):
+        """
+        Return the relevant IP and pod name for the given service (when available).
+
+        :return: external IP number (string), internal IP number (string), pod name (string), stderr (string).
+        """
+
+        func = utilities.get_scheduler_info if podname == 'dask-scheduler' else utilities.get_jupyterlab_info
+        return func(namespace=self._namespace)
 
     def deploy_dask_workers(self, scheduler_ip, scheduler_pod_name):
         """
@@ -181,7 +224,7 @@ class DaskSubmitter(object):
                                                        self._files,
                                                        self._namespace,
                                                        self._userid,
-                                                       self._images.get('dask-worker'),
+                                                       self._images.get('dask-worker', 'unknown'),
                                                        self._mountpath)
         if not worker_info:
             logger.warning('failed to deploy workers: %s', stderr)
@@ -206,8 +249,8 @@ class DaskSubmitter(object):
         """
 
         # create pilot yaml
-        path = os.path.join(os.getcwd(), self._files.get('dask-pilot'))
-        yaml = utilities.get_pilot_yaml(image_source=self._images.get('dask-pilot'),
+        path = os.path.join(os.getcwd(), self._files.get('dask-pilot', 'unknown'))
+        yaml = utilities.get_pilot_yaml(image_source=self._images.get('dask-pilot', 'unknown'),
                                         nfs_path=self._mountpath,
                                         namespace=self._namespace,
                                         user_id=self._userid,
@@ -227,7 +270,7 @@ class DaskSubmitter(object):
         else:
             logger.debug('created pilot pod')
 
-        return utilities.wait_until_deployment(name=self._podnames.get('dask-pilot'), state='Running', namespace=self._namespace)
+        return utilities.wait_until_deployment(name=self._podnames.get('dask-pilot', 'unknown'), state='Running', namespace=self._namespace)
 
     def copy_bundle(self):
         """
@@ -240,40 +283,62 @@ class DaskSubmitter(object):
 
         return status
 
-    def create_service(self):
+    def get_service_name(self, name):
         """
-        Create dask-scheduler service yaml and start it.
-        The function waits for the load balancer to expose the external IP and returns it.
+        Return the proper internal service name.
 
-        :return: external IP from load balancer (string), stderr (string)
+        :param name: general service name (string).
+        :return: internal service name (string).
         """
 
-        _external_ip = ''
+        return self._podnames.get(name, 'unknown')
+
+    def create_service(self, servicename, port, targetport):
+        """
+        Create a service yaml and start it.
+
+        :param servicename: service name (string).
+        :param port: port (int).
+        :param targetport: targetport (int).
+        :return: stderr (string)
+        """
+
         _stderr = ''
 
-        path = os.path.join(os.getcwd(), self._files.get('dask-scheduler-service'))
+        path = os.path.join(os.getcwd(), self._files.get(servicename, 'unknown'))
         yaml = utilities.get_service_yaml(namespace=self._namespace,
-                                          name=self._podnames.get('dask-scheduler-service'),
-                                          port=80,
-                                          targetport=8786)
+                                          name=self._podnames.get(servicename, 'unknown'),
+                                          port=port,
+                                          targetport=targetport)
         status = utilities.write_file(path, yaml, mute=False)
         if not status:
-            _stderr = 'cannot continue since dask-scheduler service yaml file could not be created'
+            _stderr = 'cannot continue since %s service yaml file could not be created' % servicename
             logger.warning(_stderr)
-            return _external_ip, _stderr
+            return _stderr
 
-        # start the dask-scheduler service
+        # start the service
         status, _, _stderr = utilities.kubectl_create(filename=path)
         if not status:
-            logger.warning('failed to create pilot pod: %s', _stderr)
-            return _external_ip, _stderr
+            logger.warning('failed to create %s pod: %s', self._podnames.get(servicename, 'unknown'), _stderr)
+            return _stderr
         else:
-            logger.debug('created dask-scheduler service')
+            logger.debug('created %s service', self._podnames.get(servicename, 'unknown'))
 
-        status, _external_ip, _stderr = utilities.wait_until_deployment(name=self._podnames.get('dask-scheduler-service'), namespace=self._namespace)
+#        status, _external_ip, _stderr = utilities.wait_until_deployment(name=self._podnames.get('dask-scheduler-service','unknown'), namespace=self._namespace)
 
-        return _external_ip, _stderr
+        return _stderr
 
+    def wait_for_service(self, name):
+        """
+        Wait for a given service deployment to start.
+
+        :param name: service name (string)
+        :return: host IP (string), stderr (string).
+        """
+
+        _, _ip, _stderr = utilities.wait_until_deployment(name=self._podnames.get(name, 'unknown'),
+                                                          namespace=self._namespace)
+        return _ip, _stderr
 
 def cleanup(namespace=None, user_id=None, pvc=False, pv=False):
     """
@@ -288,6 +353,11 @@ def cleanup(namespace=None, user_id=None, pvc=False, pv=False):
 
     if namespace:
         cmd = 'kubectl delete --all pods --namespace=%s' % namespace
+        logger.debug('executing: %s', cmd)
+        ec, stdout, stderr = utilities.execute(cmd)
+        logger.debug(stdout)
+
+        cmd = 'kubectl delete --all services --namespace=%s' % namespace
         logger.debug('executing: %s', cmd)
         ec, stdout, stderr = utilities.execute(cmd)
         logger.debug(stdout)
@@ -338,8 +408,7 @@ if __name__ == '__main__':
         logger.warning('failed to create namespace %s: %s', submitter.get_namespace(), stderr)
         cleanup()
         exit(-1)
-    else:
-        logger.info('created namespace: %s', submitter.get_namespace())
+    logger.info('created namespace: %s', submitter.get_namespace())
 
     # create PVC and PV
     for name in ['pvc', 'pv']:
@@ -353,20 +422,52 @@ if __name__ == '__main__':
     # create the dask scheduler service with a load balancer (the external IP of the load balancer will be made
     # available to the caller)
     # [wait until external IP is available]
-    external_ip, stderr = submitter.create_service()
-    if not external_ip:
-        logger.warning('failed to deploy dask scheduler load balancer (external IP not returned): %s', stderr)
-        cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
-        exit(-1)
-    logger.info('deployed load balancer with external ip=%s', external_ip)
+    services = ['dask-scheduler', 'jupyterlab']
+    for service in services:
+        _service = service + '-service'
+        ports = submitter.get_ports(_service)
+        stderr = submitter.create_service(_service, ports[0], ports[1])
+        if stderr:
+            logger.warning('failed to deploy %s: %s', _service, stderr)
+            cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
+            exit(-1)
+
+    # dictionary with service info partially to be returned to the user (external and internal IPs)
+    service_info = {}  # { service: {'external_ip': <ext. ip>, 'internal_ip': <int. ip>, 'pod_name': <pod_name>}, ..}
+
+    # start services with load balancers
+    for service in services:
+        _service = service + '-service'
+        _ip, stderr = submitter.wait_for_service(_service)
+        if stderr:
+            logger.warning('failed to start load balancer for %s: %s', _service, stderr)
+            cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
+            exit(-1)
+        service_info[service]['external_ip'] = _ip
+        logger.info('load balancer for %s has external ip=%s', _service, service_info[service].get('external_ip'))
 
     # deploy the dask scheduler (the scheduler IP will only be available from within the cluster)
-    scheduler_ip, scheduler_pod_name, stderr = submitter.deploy_dask_scheduler()
-    if not scheduler_ip:
-        logger.warning('failed to deploy dask scheduler: %s', stderr)
-        cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
-        exit(-1)
-    logger.info('deployed %s pod', scheduler_pod_name)
+    for service in services:
+        stderr = submitter.deploy_service_pod(service)
+        if stderr:
+            logger.warning('failed to deploy %s pod: %s', service, stderr)
+            cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
+            exit(-1)
+
+    # get the scheduler and jupyterlab info
+    # for the dask scheduler, the internal IP number is needed
+    # for jupyterlab, we only need to verify that it started properly
+    for service in services:
+        internal_ip, _pod_name, stderr = submitter.get_service_info(service)
+        if stderr:
+            logger.warning('%s pod failed: %s', service, stderr)
+            cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
+            exit(-1)
+        service_info[service] = {'internal_ip': internal_ip, 'pod_name': _pod_name}
+        if internal_ip:
+            logger.info('pod %s with internal ip=%s started correctly', _pod_name, internal_ip)
+        else:
+            logger.info('pod %s started correctly', _pod_name)
 
     # switch context for the new namespace
     #status = utilities.kubectl_execute(cmd='config use-context', namespace=namespace)
@@ -375,30 +476,21 @@ if __name__ == '__main__':
     #status = utilities.kubectl_execute(cmd='config use-context', namespace='default')
 
     # deploy the worker pods
-    status, stderr = submitter.deploy_dask_workers(scheduler_ip, scheduler_pod_name)
+    status, stderr = submitter.deploy_dask_workers(service_info['dask-scheduler'].get('internal_ip'),
+                                                   service_info['dask-scheduler'].get('pod_name'))
     if not status:
         logger.warning('failed to deploy dask workers: %s', stderr)
         cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
         exit(-1)
     logger.info('deployed all dask-worker pods')
 
-    #######
-    #from dask.distributed import Client
-    #try:
-    #    logger.debug('using scheduler ip=%s', scheduler_ip)
-    #    client = Client(scheduler_ip)
-    #except IOError as exc:
-    #    logger.warning('failed to connect to dask submitter:\n%s', exc)
-    #    #cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
-    #    exit(-1)
-    #else:
-    #    logger.info('connected client to scheduler at %s', scheduler_ip)
-    #######
-
     cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
+    exit(0)
+
+    #######################################
 
     # deploy the pilot pod
-    status, _, stderr = submitter.deploy_pilot(scheduler_ip)
+    status, _, stderr = submitter.deploy_pilot(service_info['dask-scheduler-service'].get('internal_ip'))
 
     # time.sleep(30)
     cmd = 'kubectl logs dask-pilot --namespace=%s' % submitter.get_namespace()

@@ -578,7 +578,7 @@ spec:
     return yaml
 
 
-def get_scheduler_yaml(image_source=None, nfs_path=None, namespace=None, user_id=None, kind='Pod'):
+def get_scheduler_yaml(image_source=None, nfs_path=None, namespace=None, user_id=None, port=8786):
     """
     Return the yaml for the Dask scheduler for a given image and the path to the shared file system.
 
@@ -586,6 +586,7 @@ def get_scheduler_yaml(image_source=None, nfs_path=None, namespace=None, user_id
     :param nfs_path: NFS path (string).
     :param namespace: namespace (string).
     :param user_id: user id (string).
+    :param port: optional container port (int).
     :return: yaml (string).
     """
 
@@ -602,29 +603,7 @@ def get_scheduler_yaml(image_source=None, nfs_path=None, namespace=None, user_id
         logger.warning('user id must be set')
         return ""
 
-    if kind == 'Pod':
-        yaml = """
-apiVersion: v1
-kind: Pod
-metadata:
-  name: dask-scheduler
-  namespace: CHANGE_NAMESPACE
-spec:
-  restartPolicy: Never
-  containers:
-  - name: dask-scheduler
-    image: CHANGE_IMAGE_SOURCE
-    volumeMounts:
-    - mountPath: CHANGE_NFS_PATH
-      name: fileserver-CHANGE_USERID
-  volumes:
-  - name: fileserver-CHANGE_USERID
-    persistentVolumeClaim:
-      claimName: fileserver-claim
-      readOnly: false
-"""
-    elif kind == 'Deployment':
-        yaml = """
+    yaml = """
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -656,35 +635,75 @@ spec:
           claimName: fileserver-claim
           readOnly: false
 """
-    else:
-        yaml = """
+
+    yaml = yaml.replace('CHANGE_IMAGE_SOURCE', image_source)
+    yaml = yaml.replace('CHANGE_NFS_PATH', nfs_path)
+    yaml = yaml.replace('CHANGE_NAMESPACE', namespace)
+    yaml = yaml.replace('CHANGE_USERID', user_id)
+
+    return yaml
+
+
+def get_jupyterlab_yaml(image_source=None, nfs_path=None, namespace=None, user_id=None, port=8888):
+    """
+    Return the yaml for jupyterlab for a given image and the path to the shared file system.
+
+    :param image_source: image source (string).
+    :param nfs_path: NFS path (string).
+    :param namespace: namespace (string).
+    :param user_id: user id (string).
+    :return: yaml (string).
+    """
+
+    if not image_source:
+        logger.warning('image source must be set')
+        return ""
+    if not nfs_path:
+        logger.warning('nfs path must be set')
+        return ""
+    if not namespace:
+        logger.warning('namespace must be set')
+        return ""
+    if not user_id:
+        logger.warning('user id must be set')
+        return ""
+
+    yaml = """
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  labels:
-    run: dask-scheduler
-  name: dask-scheduler
+  name: jupyterlab
   namespace: CHANGE_NAMESPACE
+  labels:
+    name: jupyterlab
 spec:
   replicas: 1
   selector:
     matchLabels:
-      run: dask-scheduler
+      name: jupyterlab
   template:
     metadata:
       labels:
-        run: dask-scheduler
+        name: jupyterlab
     spec:
       securityContext:
         runAsUser: 0
+        fsGroup: 0
       containers:
-      - image: CHANGE_IMAGE_SOURCE
-        name: dask-scheduler
-        ports:
-        - containerPort: 8080
-        volumeMounts:
-        - name: fileserver-CHANGE_USERID
-          mountPath: CHANGE_NFS_PATH
+        - name: jupyterlab
+          image: CHANGE_IMAGE_SOURCE
+          imagePullPolicy: IfNotPresent
+          ports:
+          - containerPort: CHANGE_PORT
+          command:
+            - /bin/bash
+            - -c
+            - |
+              start.sh jupyter lab --LabApp.token='password' --LabApp.ip='0.0.0.0' --LabApp.allow_root=True
+          volumeMounts:
+            - name: fileserver-CHANGE_USERID
+              mountPath: CHANGE_NFS_PATH
+      restartPolicy: Always
       volumes:
       - name: fileserver-CHANGE_USERID
         persistentVolumeClaim:
@@ -693,6 +712,7 @@ spec:
     yaml = yaml.replace('CHANGE_IMAGE_SOURCE', image_source)
     yaml = yaml.replace('CHANGE_NFS_PATH', nfs_path)
     yaml = yaml.replace('CHANGE_NAMESPACE', namespace)
+    yaml = yaml.replace('CHANGE_PORT', port)
     yaml = yaml.replace('CHANGE_USERID', user_id)
 
     return yaml
@@ -859,7 +879,7 @@ def get_scheduler_info(timeout=480, namespace=None):
     now = starttime
     _sleep = 5  # sleeping time between attempts
     first = True
-    while (now - starttime < timeout):
+    while now - starttime < timeout:
         # get the scheduler stdout
         status, stdout, stderr = kubectl_logs(pod=podname, namespace=namespace)
         if not status or not stdout:
@@ -868,7 +888,6 @@ def get_scheduler_info(timeout=480, namespace=None):
 
         pattern = r'tcp://[0-9]+(?:\.[0-9]+){3}:[0-9]+'
         for line in stdout.split('\n'):
-            # also look for the Jupyter IP (different line)
             if "Scheduler at:" in line:
                 _ip = re.findall(pattern, line)
                 if _ip:
@@ -886,6 +905,53 @@ def get_scheduler_info(timeout=480, namespace=None):
             now = time.time()
 
     return scheduler_ip, podname, ''
+
+
+def get_jupyterlab_info(timeout=480, namespace=None):
+    """
+    Wait for the jupyterlab pod to start and its proper pod name.
+
+    :param timeout: time-out (integer).
+    :param namespace: namespace (string).
+    :return: unused string (string), pod name (string), stderr (string).
+    """
+
+    podname = get_pod_name(namespace=namespace)
+    _, _, stderr = wait_until_deployment(name=podname, state='Running', timeout=120, namespace=namespace, deployment=False)
+    if stderr:
+        return podname, stderr
+
+    starttime = time.time()
+    now = starttime
+    _sleep = 5  # sleeping time between attempts
+    first = True
+    while now - starttime < timeout:
+        # get the scheduler stdout
+        status, stdout, stderr = kubectl_logs(pod=podname, namespace=namespace)
+        if not status or not stdout:
+            logger.warning('jupyterlab pod stdout:\n%s', stdout)
+            logger.warning('jupyterlab pod failed to start: %s', stderr)
+            return podname, stderr
+
+        pattern = r'tcp://[0-9]+(?:\.[0-9]+){3}:[0-9]+'
+        for line in stdout.split('\n'):
+            if "Scheduler at:" in line:
+                _ip = re.findall(pattern, line)
+                if _ip:
+                    scheduler_ip = _ip[0]
+                    break
+
+        if scheduler_ip:
+            break
+        else:
+            # IP has not yet been extracted, wait longer and try again
+            if first:
+                logger.info('sleeping until scheduler IP is known (timeout=%d s)', timeout)
+                first = False
+            time.sleep(_sleep)
+            now = time.time()
+
+    return podname, ''
 
 
 def deploy_workers(scheduler_ip, _nworkers, yaml_files, namespace, user_id, imagename, mountpath):
