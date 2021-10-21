@@ -443,6 +443,7 @@ if __name__ == '__main__':
             logger.warning('failed to start load balancer for %s: %s', _service, stderr)
             cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
             exit(-1)
+        service_info[service] = {}
         service_info[service]['external_ip'] = _ip
         logger.info('load balancer for %s has external ip=%s', _service, service_info[service].get('external_ip'))
 
