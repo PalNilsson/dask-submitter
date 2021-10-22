@@ -870,7 +870,7 @@ def get_scheduler_info(timeout=480, namespace=None):
 
     scheduler_ip = ""
 
-    podname = get_pod_name(namespace=namespace)
+    podname = get_pod_name(namespace=namespace, pattern=r'(dask\-scheduler\-.+)')
     status, _, stderr = wait_until_deployment(name=podname, state='Running', timeout=120, namespace=namespace, deployment=False)
     if not status:
         return scheduler_ip, podname, stderr
@@ -916,7 +916,7 @@ def get_jupyterlab_info(timeout=480, namespace=None):
     :return: unused string (string), pod name (string), stderr (string).
     """
 
-    podname = get_pod_name(namespace=namespace)
+    podname = get_pod_name(namespace=namespace, pattern=r'(jupyterlab\-.+)')
     _, _, stderr = wait_until_deployment(name=podname, state='Running', timeout=120, namespace=namespace, deployment=False)
     if stderr:
         return '', podname, stderr
