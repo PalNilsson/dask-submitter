@@ -211,12 +211,13 @@ class DaskSubmitter(object):
         func = utilities.get_scheduler_info if podname == 'dask-scheduler' else utilities.get_jupyterlab_info
         return func(namespace=self._namespace)
 
-    def deploy_dask_workers(self, scheduler_ip, scheduler_pod_name):
+    def deploy_dask_workers(self, scheduler_ip='', scheduler_pod_name='', jupyter_pod_name=''):
         """
         Deploy all dask workers.
 
         :param scheduler_ip: dask scheduler IP (string).
         :param scheduler_pod_name: pod name for scheduler (string).
+        :param optional jupyter_pod_name: pod name for jupyterlab (string).
         :return: True if successful, stderr (Boolean, string)
         """
 
@@ -232,8 +233,12 @@ class DaskSubmitter(object):
             return False, stderr
 
         # wait for the worker pods to start
+        # (send any scheduler and jupyter pod name to function so they can be removed from a query)
         try:
-            status = utilities.await_worker_deployment(worker_info, scheduler_pod_name, self._namespace)
+            status = utilities.await_worker_deployment(worker_info,
+                                                       self._namespace,
+                                                       scheduler_pod_name=scheduler_pod_name,
+                                                       jupyter_pod_name=jupyter_pod_name)
         except Exception as exc:
             stderr = 'caught exception: %s', exc
             logger.warning(stderr)
@@ -478,8 +483,9 @@ if __name__ == '__main__':
     #status = utilities.kubectl_execute(cmd='config use-context', namespace='default')
 
     # deploy the worker pods
-    status, stderr = submitter.deploy_dask_workers(service_info['dask-scheduler'].get('internal_ip'),
-                                                   service_info['dask-scheduler'].get('pod_name'))
+    status, stderr = submitter.deploy_dask_workers(internal_ip=service_info['dask-scheduler'].get('internal_ip'),
+                                                   scheduler_pod_name=service_info['dask-scheduler'].get('pod_name'),
+                                                   jupyter_pod_name=service_info['jupyterlab'].get('pod_name'))
     if not status:
         logger.warning('failed to deploy dask workers: %s', stderr)
         cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)

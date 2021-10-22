@@ -1000,7 +1000,7 @@ def deploy_workers(scheduler_ip, _nworkers, yaml_files, namespace, user_id, imag
     return worker_info, ''
 
 
-def await_worker_deployment(worker_info, scheduler_pod_name, namespace, timeout=300):
+def await_worker_deployment(worker_info, namespace, scheduler_pod_name='', jupyter_pod_name='', timeout=300):
     """
     Wait for all workers to start running.
 
@@ -1032,7 +1032,10 @@ def await_worker_deployment(worker_info, scheduler_pod_name, namespace, timeout=
 
         # get list of workers and get rid of the scheduler and workers that are already known to be running
         workers_list = list(dictionary.keys())
-        workers_list.remove(scheduler_pod_name)
+        if scheduler_pod_name:
+            workers_list.remove(scheduler_pod_name)
+        if jupyter_pod_name:
+            workers_list.remove(jupyter_pod_name)
         for running_worker in running_workers:
             workers_list.remove(running_worker)
 
