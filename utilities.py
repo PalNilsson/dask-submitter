@@ -919,7 +919,7 @@ def get_jupyterlab_info(timeout=480, namespace=None):
     podname = get_pod_name(namespace=namespace)
     _, _, stderr = wait_until_deployment(name=podname, state='Running', timeout=120, namespace=namespace, deployment=False)
     if stderr:
-        return podname, stderr
+        return '', podname, stderr
 
     starttime = time.time()
     now = starttime
@@ -931,7 +931,7 @@ def get_jupyterlab_info(timeout=480, namespace=None):
         if not status or not stdout:
             logger.warning('jupyterlab pod stdout:\n%s', stdout)
             logger.warning('jupyterlab pod failed to start: %s', stderr)
-            return podname, stderr
+            return '', podname, stderr
 
         pattern = r'tcp://[0-9]+(?:\.[0-9]+){3}:[0-9]+'
         for line in stdout.split('\n'):
@@ -951,7 +951,7 @@ def get_jupyterlab_info(timeout=480, namespace=None):
             time.sleep(_sleep)
             now = time.time()
 
-    return podname, ''
+    return '', podname, ''
 
 
 def deploy_workers(scheduler_ip, _nworkers, yaml_files, namespace, user_id, imagename, mountpath):

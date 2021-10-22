@@ -205,7 +205,7 @@ class DaskSubmitter(object):
         """
         Return the relevant IP and pod name for the given service (when available).
 
-        :return: external IP number (string), internal IP number (string), pod name (string), stderr (string).
+        :return: IP number (string), pod name (string), stderr (string).
         """
 
         func = utilities.get_scheduler_info if podname == 'dask-scheduler' else utilities.get_jupyterlab_info
