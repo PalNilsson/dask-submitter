@@ -712,7 +712,7 @@ spec:
     yaml = yaml.replace('CHANGE_IMAGE_SOURCE', image_source)
     yaml = yaml.replace('CHANGE_NFS_PATH', nfs_path)
     yaml = yaml.replace('CHANGE_NAMESPACE', namespace)
-    yaml = yaml.replace('CHANGE_PORT', port)
+    yaml = yaml.replace('CHANGE_PORT', str(port))
     yaml = yaml.replace('CHANGE_USERID', user_id)
 
     return yaml
