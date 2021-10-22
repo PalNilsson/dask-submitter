@@ -358,7 +358,17 @@ def cleanup(namespace=None, user_id=None, pvc=False, pv=False):
     """
 
     if namespace:
+        cmd = 'kubectl get pod --namespace=%s' % namespace
+        logger.debug('executing: %s', cmd)
+        ec, stdout, stderr = utilities.execute(cmd)
+        logger.debug(stdout)
+
         cmd = 'kubectl delete --all pods --namespace=%s' % namespace
+        logger.debug('executing: %s', cmd)
+        ec, stdout, stderr = utilities.execute(cmd)
+        logger.debug(stdout)
+
+        cmd = 'kubectl get services --namespace=%s' % namespace
         logger.debug('executing: %s', cmd)
         ec, stdout, stderr = utilities.execute(cmd)
         logger.debug(stdout)
