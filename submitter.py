@@ -493,7 +493,7 @@ if __name__ == '__main__':
     #status = utilities.kubectl_execute(cmd='config use-context', namespace='default')
 
     # deploy the worker pods
-    status, stderr = submitter.deploy_dask_workers(internal_ip=service_info['dask-scheduler'].get('internal_ip'),
+    status, stderr = submitter.deploy_dask_workers(scheduler_ip=service_info['dask-scheduler'].get('internal_ip'),
                                                    scheduler_pod_name=service_info['dask-scheduler'].get('pod_name'),
                                                    jupyter_pod_name=service_info['jupyterlab'].get('pod_name'))
     if not status:
