@@ -180,13 +180,14 @@ class DaskSubmitter(object):
             return stderr
 
         # create yaml
-        func = utilities.get_scheduler_yaml if name == 'dask-scheduler' else utilities.get_jupyterlab_yaml
+        name += '-service'
+        func = utilities.get_scheduler_yaml if name == 'dask-scheduler-service' else utilities.get_jupyterlab_yaml
         path = os.path.join(os.getcwd(), fname)
         yaml = func(image_source=image,
                     nfs_path=self._mountpath,
                     namespace=self._namespace,
                     user_id=self._userid,
-                    port=self.get_ports(name + '-service')[0])
+                    port=self.get_ports(name)[0])
         status = utilities.write_file(path, yaml, mute=False)
         if not status:
             stderr = 'cannot continue since file %s could not be created' % path
