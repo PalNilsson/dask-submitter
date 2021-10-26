@@ -507,9 +507,12 @@ if __name__ == '__main__':
         exit(-1)
     logger.info('deployed all dask-worker pods')
 
-    logger.info('dask scheduler has external ip=%s', service_info['dask-scheduler'].get('external_ip'))
-    logger.info('dask scheduler has internal ip=%s', service_info['dask-scheduler'].get('internal_ip'))
-    logger.info('jupyterlab has external ip=%s', service_info['jupyterlab'].get('external_ip'))
+    info = '\n********************************************************')
+    info += 'dask scheduler has external ip=%s', service_info['dask-scheduler'].get('external_ip')
+    info += 'dask scheduler has internal ip=%s', service_info['dask-scheduler'].get('internal_ip')
+    info += 'jupyterlab has external ip=%s', service_info['jupyterlab'].get('external_ip')
+    info += '********************************************************'
+    logger.info(info)
 
     # cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
     exit(0)
