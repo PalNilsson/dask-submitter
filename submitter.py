@@ -487,7 +487,8 @@ if __name__ == '__main__':
             logger.warning('%s pod failed: %s', service, stderr)
             cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
             exit(-1)
-        service_info[service] = {'internal_ip': internal_ip, 'pod_name': _pod_name}
+        service_info[service]['internal_ip'] = internal_ip
+        service_info[service]['pod_name'] = _pod_name
         if internal_ip:
             logger.info('pod %s with internal ip=%s started correctly', _pod_name, internal_ip)
         else:
