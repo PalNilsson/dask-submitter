@@ -565,6 +565,7 @@ spec:
   - protocol: TCP
     port: CHANGE_PORT
     targetPort: CHANGE_TARGETPORT
+    name: http
 """
 
     yaml = yaml.replace('CHANGE_SERVICENAME', name)
