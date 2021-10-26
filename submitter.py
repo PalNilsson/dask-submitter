@@ -508,9 +508,9 @@ if __name__ == '__main__':
     logger.info('deployed all dask-worker pods')
 
     info = '\n********************************************************'
-    info += 'dask scheduler has external ip=%s', service_info['dask-scheduler'].get('external_ip')
-    info += 'dask scheduler has internal ip=%s', service_info['dask-scheduler'].get('internal_ip')
-    info += 'jupyterlab has external ip=%s', service_info['jupyterlab'].get('external_ip')
+    info += 'dask scheduler has external ip=%s' % service_info['dask-scheduler'].get('external_ip')
+    info += 'dask scheduler has internal ip=%s' % service_info['dask-scheduler'].get('internal_ip')
+    info += 'jupyterlab has external ip=%s' % service_info['jupyterlab'].get('external_ip')
     info += '********************************************************'
     logger.info(info)
 
