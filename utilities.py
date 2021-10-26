@@ -925,7 +925,7 @@ def get_jupyterlab_info(timeout=120, namespace=None):
     now = starttime
     _sleep = 5  # sleeping time between attempts
     first = True
-    scheduler_ip = None
+    started = False
     while now - starttime < timeout:
         # get the scheduler stdout
         status, stdout, stderr = kubectl_logs(pod=podname, namespace=namespace)
@@ -933,27 +933,23 @@ def get_jupyterlab_info(timeout=120, namespace=None):
             logger.warning('jupyterlab pod stdout:\n%s', stdout)
             logger.warning('jupyterlab pod failed to start: %s', stderr)
             return '', podname, stderr
-        logger.warning('jupyterlab pod stdout:\n%s', stdout)
 
-        pattern = r'tcp://[0-9]+(?:\.[0-9]+){3}:[0-9]+'
         for line in stdout.split('\n'):
-            if "Scheduler at:" in line:
-                _ip = re.findall(pattern, line)
-                if _ip:
-                    scheduler_ip = _ip[0]
-                    break
+            if "Jupyter Server" in line and 'is running at:' in line:
+                logger.info('jupyter server is running')
+                started = True
+                break
 
-        if scheduler_ip:
-            break
-        else:
-            # IP has not yet been extracted, wait longer and try again
-            if first:
-                logger.info('sleeping until scheduler IP is known (timeout=%d s)', timeout)
-                first = False
-            time.sleep(_sleep)
-            now = time.time()
+        # IP has not yet been extracted, wait longer and try again
+        if first:
+            logger.info('sleeping until jupyter server has started (timeout=%d s)', timeout)
+            first = False
+        time.sleep(_sleep)
+        now = time.time()
 
-    return '', podname, ''
+    if not started:
+        stderr = 'Jupyter server did not start'
+    return '', podname, stderr
 
 
 def deploy_workers(scheduler_ip, _nworkers, yaml_files, namespace, user_id, imagename, mountpath):
@@ -1031,6 +1027,7 @@ def await_worker_deployment(worker_info, namespace, scheduler_pod_name='', jupyt
 
         # convert command output to a dictionary
         dictionary = _convert_to_dict(stdout)
+        logger.debug('dict=%s', str(dictionary))
 
         # get list of workers and get rid of the scheduler and workers that are already known to be running
         workers_list = list(dictionary.keys())
@@ -1041,6 +1038,7 @@ def await_worker_deployment(worker_info, namespace, scheduler_pod_name='', jupyt
         for running_worker in running_workers:
             workers_list.remove(running_worker)
 
+        logger.debug('workers_list=%s', str(workers_list))
         # check the states
         for worker_name in workers_list:
             # is the worker in Running state?
@@ -1052,7 +1050,7 @@ def await_worker_deployment(worker_info, namespace, scheduler_pod_name='', jupyt
             else:
                 if state == 'Running':
                     running_workers.append(worker_name)
-        if len(running_workers) == len(list(dictionary.keys())) - 1:
+        if len(running_workers) == len(list(dictionary.keys())) - 2:
             logger.info('all workers are running')
             processing = False
         else:
