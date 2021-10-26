@@ -559,7 +559,7 @@ metadata:
 spec:
   type: LoadBalancer
   selector:
-    app: CHANGE_SERVICENAME
+    app: CHANGE_SERVICE2NAME
     env: prod
   ports:
   - protocol: TCP
@@ -568,6 +568,7 @@ spec:
 """
 
     yaml = yaml.replace('CHANGE_SERVICENAME', name)
+    yaml = yaml.replace('CHANGE_SERVICE2NAME', name.replace('-svc', ''))
     yaml = yaml.replace('CHANGE_PORT', str(port))
     yaml = yaml.replace('CHANGE_TARGETPORT', str(targetport))
     yaml = yaml.replace('CHANGE_NAMESPACE', namespace)
