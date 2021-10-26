@@ -217,7 +217,7 @@ def kubectl_execute(cmd=None, filename=None, pod=None, namespace=None):
     if cmd in ['get pods', 'logs']:
         execmd += ' --namespace=%s' % namespace
 
-    logger.debug('executing: %s', execmd)
+    #logger.debug('executing: %s', execmd)
     exitcode, stdout, stderr = execute(execmd)
 #    if exitcode and stderr.lower().startswith('error'):
     if exitcode and stderr:
@@ -295,7 +295,7 @@ def wait_until_deployment(name=None, state=None, timeout=120, namespace=None, de
 
         resource = 'services' if 'svc' in name else name
         cmd = "kubectl get %s %s --namespace=%s" % (podtype, resource, namespace)
-        logger.debug('executing cmd=\'%s\'', cmd)
+        #logger.debug('executing cmd=\'%s\'', cmd)
         exitcode, stdout, stderr = execute(cmd)
         logger.debug(exitcode)
         logger.debug(stdout)
@@ -1030,7 +1030,6 @@ def await_worker_deployment(worker_info, namespace, scheduler_pod_name='', jupyt
 
         # convert command output to a dictionary
         dictionary = _convert_to_dict(stdout)
-        logger.debug('dict=%s', str(dictionary))
 
         # get list of workers and get rid of the scheduler and workers that are already known to be running
         workers_list = list(dictionary.keys())
@@ -1041,7 +1040,6 @@ def await_worker_deployment(worker_info, namespace, scheduler_pod_name='', jupyt
         for running_worker in running_workers:
             workers_list.remove(running_worker)
 
-        logger.debug('workers_list=%s', str(workers_list))
         # check the states
         for worker_name in workers_list:
             # is the worker in Running state?
