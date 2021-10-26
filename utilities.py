@@ -325,7 +325,7 @@ def wait_until_deployment(name=None, state=None, timeout=120, namespace=None, de
                         processing = False
                         break
                 if first:
-                    logger.info('sleeping until %s is running (timeout=%d s)', _name, timeout)
+                    logger.info('sleeping until service is running (timeout=%d s)', timeout)
                     first = False
         time.sleep(_sleep)
 
