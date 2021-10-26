@@ -940,6 +940,9 @@ def get_jupyterlab_info(timeout=120, namespace=None):
                 started = True
                 break
 
+        if started:
+            break
+
         # IP has not yet been extracted, wait longer and try again
         if first:
             logger.info('sleeping until jupyter server has started (timeout=%d s)', timeout)
