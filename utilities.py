@@ -907,7 +907,7 @@ def get_scheduler_info(timeout=480, namespace=None):
     return scheduler_ip, podname, ''
 
 
-def get_jupyterlab_info(timeout=480, namespace=None):
+def get_jupyterlab_info(timeout=120, namespace=None):
     """
     Wait for the jupyterlab pod to start and its proper pod name.
 
@@ -925,6 +925,7 @@ def get_jupyterlab_info(timeout=480, namespace=None):
     now = starttime
     _sleep = 5  # sleeping time between attempts
     first = True
+    scheduler_ip = None
     while now - starttime < timeout:
         # get the scheduler stdout
         status, stdout, stderr = kubectl_logs(pod=podname, namespace=namespace)
