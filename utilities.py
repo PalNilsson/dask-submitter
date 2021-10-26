@@ -933,6 +933,7 @@ def get_jupyterlab_info(timeout=120, namespace=None):
             logger.warning('jupyterlab pod stdout:\n%s', stdout)
             logger.warning('jupyterlab pod failed to start: %s', stderr)
             return '', podname, stderr
+        logger.warning('jupyterlab pod stdout:\n%s', stdout)
 
         pattern = r'tcp://[0-9]+(?:\.[0-9]+){3}:[0-9]+'
         for line in stdout.split('\n'):
