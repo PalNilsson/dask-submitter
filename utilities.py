@@ -612,7 +612,8 @@ metadata:
   labels:
     app: dask-scheduler
 spec:
-  replicas: 1
+  restartPolicy: Never
+  #replicas: 1
   selector:
     matchLabels:
       run: dask-scheduler
@@ -677,7 +678,8 @@ metadata:
   labels:
     name: jupyterlab
 spec:
-  replicas: 1
+  restartPolicy: Never
+  #replicas: 1
   selector:
     matchLabels:
       name: jupyterlab
