@@ -609,7 +609,7 @@ metadata:
   labels:
     app: dask-scheduler
 spec:
-  #replicas: 0
+  replicas: 1
   selector:
     matchLabels:
       run: dask-scheduler
@@ -674,7 +674,7 @@ metadata:
   labels:
     name: jupyterlab
 spec:
-  #replicas: 0
+  replicas: 1
   selector:
     matchLabels:
       name: jupyterlab
