@@ -856,7 +856,7 @@ spec:
     return yaml
 
 
-def get_scheduler_info(timeout=480, namespace=None):
+def get_scheduler_info(timeout=1480, namespace=None):
     """
     Wait for the scheduler to start, then grab the scheduler IP from the stdout and its proper pod name.
 
