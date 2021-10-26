@@ -532,7 +532,7 @@ spec:
     return yaml
 
 
-def get_service_yaml(namespace=None, name=None, port=80, targetport=8786):
+def get_service_yaml(namespace=None, name=None, port=80, targetport=8786, app=None):
     """
     Return the yaml for the dask-scheduler load balancer service.
 
@@ -549,6 +549,9 @@ def get_service_yaml(namespace=None, name=None, port=80, targetport=8786):
     if not name:
         logger.warning('service name must be set')
         return ""
+    if not app:
+        logger.warning('app name must be set')
+        return ""
 
     yaml = """
 apiVersion: v1
@@ -559,7 +562,7 @@ metadata:
 spec:
   type: LoadBalancer
   selector:
-    app: CHANGE_SERVICE2NAME
+    app: CHANGE_APPNAME
     env: prod
   ports:
   - protocol: TCP
@@ -569,7 +572,7 @@ spec:
 """
 
     yaml = yaml.replace('CHANGE_SERVICENAME', name)
-    yaml = yaml.replace('CHANGE_SERVICE2NAME', name.replace('-svc', ''))
+    yaml = yaml.replace('CHANGE_APPNAME', app)
     yaml = yaml.replace('CHANGE_PORT', str(port))
     yaml = yaml.replace('CHANGE_TARGETPORT', str(targetport))
     yaml = yaml.replace('CHANGE_NAMESPACE', namespace)

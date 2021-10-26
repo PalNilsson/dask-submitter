@@ -315,7 +315,8 @@ class DaskSubmitter(object):
         yaml = utilities.get_service_yaml(namespace=self._namespace,
                                           name=self._podnames.get(servicename, 'unknown'),
                                           port=port,
-                                          targetport=targetport)
+                                          targetport=targetport,
+                                          app='dask-scheduler')
         status = utilities.write_file(path, yaml, mute=False)
         if not status:
             _stderr = 'cannot continue since %s service yaml file could not be created' % servicename
