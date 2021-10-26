@@ -187,7 +187,7 @@ class DaskSubmitter(object):
                     nfs_path=self._mountpath,
                     namespace=self._namespace,
                     user_id=self._userid,
-                    port=self.get_ports(name)[0])
+                    port=self.get_ports(name)[1])
         status = utilities.write_file(path, yaml, mute=False)
         if not status:
             stderr = 'cannot continue since file %s could not be created' % path
