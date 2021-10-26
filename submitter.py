@@ -509,7 +509,7 @@ if __name__ == '__main__':
         cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
         exit(-1)
     logger.info('deployed all dask-worker pods')
-    logger.debug('dict=%s', str(service_info))
+
     info = '\n********************************************************'
     info += '\ndask scheduler has external ip=%s' % service_info['dask-scheduler'].get('external_ip')
     info += '\ndask scheduler has internal ip=%s' % service_info['dask-scheduler'].get('internal_ip')
