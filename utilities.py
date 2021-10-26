@@ -607,24 +607,24 @@ def get_scheduler_yaml(image_source=None, nfs_path=None, namespace=None, user_id
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: dask-scheduler
+  name: dask-scheduler-svc
   namespace: CHANGE_NAMESPACE
   labels:
-    app: dask-scheduler
+    app: dask-scheduler-svc
 spec:
   replicas: 1
   selector:
     matchLabels:
-      run: dask-scheduler
+      run: dask-scheduler-svc
   template:
     metadata:
       labels:
-        run: dask-scheduler
+        run: dask-scheduler-svc
     spec:
       securityContext:
         runAsUser: 0
       containers:
-      - name: dask-scheduler
+      - name: dask-scheduler-svc
         image: CHANGE_IMAGE_SOURCE
         volumeMounts:
         - mountPath: CHANGE_NFS_PATH
@@ -672,25 +672,25 @@ def get_jupyterlab_yaml(image_source=None, nfs_path=None, namespace=None, user_i
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: jupyterlab
+  name: jupyterlab-svc
   namespace: CHANGE_NAMESPACE
   labels:
-    name: jupyterlab
+    name: jupyterlab-svc
 spec:
   replicas: 1
   selector:
     matchLabels:
-      name: jupyterlab
+      name: jupyterlab-svc
   template:
     metadata:
       labels:
-        name: jupyterlab
+        name: jupyterlab-svc
     spec:
       securityContext:
         runAsUser: 0
         fsGroup: 0
       containers:
-        - name: jupyterlab
+        - name: jupyterlab-svc
           image: CHANGE_IMAGE_SOURCE
           imagePullPolicy: IfNotPresent
           ports:
