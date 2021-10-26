@@ -570,7 +570,7 @@ spec:
     name: http
 """
 
-    yaml = yaml.replace('CHANGE_SERVICENAME', name)
+    yaml = yaml.replace('CHANGE_SERVICENAME', name.replace('-svc', ''))
     yaml = yaml.replace('CHANGE_PORT', str(port))
     yaml = yaml.replace('CHANGE_TARGETPORT', str(targetport))
     yaml = yaml.replace('CHANGE_NAMESPACE', namespace)
@@ -607,24 +607,24 @@ def get_scheduler_yaml(image_source=None, nfs_path=None, namespace=None, user_id
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: dask-scheduler-svc
+  name: dask-scheduler
   namespace: CHANGE_NAMESPACE
   labels:
-    app: dask-scheduler-svc
+    app: dask-scheduler
 spec:
   replicas: 1
   selector:
     matchLabels:
-      run: dask-scheduler-svc
+      run: dask-scheduler
   template:
     metadata:
       labels:
-        run: dask-scheduler-svc
+        run: dask-scheduler
     spec:
       securityContext:
         runAsUser: 0
       containers:
-      - name: dask-scheduler-svc
+      - name: dask-scheduler
         image: CHANGE_IMAGE_SOURCE
         volumeMounts:
         - mountPath: CHANGE_NFS_PATH
@@ -672,25 +672,25 @@ def get_jupyterlab_yaml(image_source=None, nfs_path=None, namespace=None, user_i
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: jupyterlab-svc
+  name: jupyterlab
   namespace: CHANGE_NAMESPACE
   labels:
-    name: jupyterlab-svc
+    name: jupyterlab
 spec:
   replicas: 1
   selector:
     matchLabels:
-      name: jupyterlab-svc
+      name: jupyterlab
   template:
     metadata:
       labels:
-        name: jupyterlab-svc
+        name: jupyterlab
     spec:
       securityContext:
         runAsUser: 0
         fsGroup: 0
       containers:
-        - name: jupyterlab-svc
+        - name: jupyterlab
           image: CHANGE_IMAGE_SOURCE
           imagePullPolicy: IfNotPresent
           ports:
