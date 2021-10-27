@@ -63,11 +63,11 @@ class DaskSubmitter(object):
     }
 
     _podnames = {
-        'dask-scheduler-service': 'dask-scheduler-svc',
+        'dask-scheduler-service': 'dask-scheduler',
         'dask-scheduler': 'dask-scheduler',
         'dask-worker': 'dask-worker',
         'dask-pilot': 'dask-pilot',
-        'jupyterlab-service': 'jupyterlab-svc',
+        'jupyterlab-service': 'jupyterlab',
         'jupyterlab': 'jupyterlab',
     }
 

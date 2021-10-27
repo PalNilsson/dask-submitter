@@ -611,19 +611,19 @@ def get_scheduler_yaml(image_source=None, nfs_path=None, namespace=None, user_id
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: dask-scheduler-svc
+  name: dask-scheduler
   namespace: CHANGE_NAMESPACE
   labels:
-    app: dask-scheduler-svc
+    app: dask-scheduler
 spec:
   replicas: 1
   selector:
     matchLabels:
-      run: dask-scheduler-svc
+      run: dask-scheduler
   template:
     metadata:
       labels:
-        run: dask-scheduler-svc
+        run: dask-scheduler
     spec:
       securityContext:
         runAsUser: 0
@@ -676,19 +676,19 @@ def get_jupyterlab_yaml(image_source=None, nfs_path=None, namespace=None, user_i
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: jupyterlab-svc
+  name: jupyterlab
   namespace: CHANGE_NAMESPACE
   labels:
-    name: jupyterlab-svc
+    name: jupyterlab
 spec:
   replicas: 1
   selector:
     matchLabels:
-      name: jupyterlab-svc
+      name: jupyterlab
   template:
     metadata:
       labels:
-        name: jupyterlab-svc
+        name: jupyterlab
     spec:
       securityContext:
         runAsUser: 0
@@ -875,7 +875,6 @@ def get_scheduler_info(timeout=480, namespace=None):
     scheduler_ip = ""
 
     podname = get_pod_name(namespace=namespace, pattern=r'(dask\-scheduler\-.+)')
-    podname = podname.replace('-svc', '')
     logger.debug('got pod name=%s', podname)
     status, _, stderr = wait_until_deployment(name=podname, state='Running', timeout=120, namespace=namespace, deployment=False)
     if not status:
@@ -923,7 +922,6 @@ def get_jupyterlab_info(timeout=120, namespace=None):
     """
 
     podname = get_pod_name(namespace=namespace, pattern=r'(jupyterlab\-.+)')
-    podname = podname.replace('-svc', '')
     _, _, stderr = wait_until_deployment(name=podname, state='Running', timeout=120, namespace=namespace, deployment=False)
     if stderr:
         return '', podname, stderr
