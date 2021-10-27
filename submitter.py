@@ -443,7 +443,7 @@ if __name__ == '__main__':
 
     # create PVC and PV
     for name in ['pvc', 'pv']:
-        status, stderr = submitter.create_pvcpv(name=name)
+        status, stderr = submitter.create_pvcpv(workdir, name=name)
         if not status:
             logger.warning('could not create PVC/PV: %s', stderr)
             cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid())
