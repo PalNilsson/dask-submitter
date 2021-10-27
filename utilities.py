@@ -934,6 +934,8 @@ def get_jupyterlab_info(timeout=120, namespace=None):
             logger.warning('jupyterlab pod failed to start: %s', stderr)
             return '', podname, stderr
 
+        logger.debug(stdout)
+
         for line in stdout.split('\n'):
             if "Jupyter Server" in line and 'is running at:' in line:
                 logger.info('jupyter server is running')
