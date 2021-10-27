@@ -204,14 +204,15 @@ class DaskSubmitter(object):
 
         return ""
 
-    def get_service_info(self, podname):
+    def get_service_info(self, service):
         """
         Return the relevant IP and pod name for the given service (when available).
 
+        :param service: service name (string).
         :return: IP number (string), pod name (string), stderr (string).
         """
 
-        func = utilities.get_scheduler_info if podname == 'dask-scheduler' else utilities.get_jupyterlab_info
+        func = utilities.get_scheduler_info if service == 'dask-scheduler' else utilities.get_jupyterlab_info
         return func(namespace=self._namespace)
 
     def deploy_dask_workers(self, workdir, scheduler_ip='', scheduler_pod_name='', jupyter_pod_name=''):
@@ -477,6 +478,8 @@ if __name__ == '__main__':
             logger.warning('failed to deploy %s pod: %s', service, stderr)
             cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
             exit(-1)
+        else:
+            logger.debug('deployed %s pod', service)
 
     # get the scheduler and jupyterlab info
     # for the dask scheduler, the internal IP number is needed

@@ -863,7 +863,7 @@ spec:
     return yaml
 
 
-def get_scheduler_info(timeout=1480, namespace=None):
+def get_scheduler_info(timeout=480, namespace=None):
     """
     Wait for the scheduler to start, then grab the scheduler IP from the stdout and its proper pod name.
 
@@ -875,6 +875,8 @@ def get_scheduler_info(timeout=1480, namespace=None):
     scheduler_ip = ""
 
     podname = get_pod_name(namespace=namespace, pattern=r'(dask\-scheduler\-.+)')
+    podname = podname.replace('-svc', '')
+    logger.debug('got pod name=%s', podname)
     status, _, stderr = wait_until_deployment(name=podname, state='Running', timeout=120, namespace=namespace, deployment=False)
     if not status:
         return scheduler_ip, podname, stderr
@@ -921,6 +923,7 @@ def get_jupyterlab_info(timeout=120, namespace=None):
     """
 
     podname = get_pod_name(namespace=namespace, pattern=r'(jupyterlab\-.+)')
+    podname = podname.replace('-svc', '')
     _, _, stderr = wait_until_deployment(name=podname, state='Running', timeout=120, namespace=namespace, deployment=False)
     if stderr:
         return '', podname, stderr
