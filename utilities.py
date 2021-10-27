@@ -260,7 +260,7 @@ def get_pod_name(namespace=None, pattern=r'(dask\-scheduler\-.+)'):
     return podname
 
 
-def wait_until_deployment(name=None, state=None, timeout=120, namespace=None, deployment=False):
+def wait_until_deployment(name=None, state=None, timeout=120, namespace=None, deployment=False, service=False):
     """
     Wait until a given pod or service is in running state.
     In case the service has an external IP, return it.
@@ -273,6 +273,7 @@ def wait_until_deployment(name=None, state=None, timeout=120, namespace=None, de
     :param timeout: time-out (integer).
     :param namespace: namespace (string).
     :param deployment: True for deployments (Boolean).
+    :param service: True for services (Boolean).
     :return: True if pod reaches given state before given time-out (Boolean), external IP (string), stderr (string).
     """
 
@@ -288,12 +289,12 @@ def wait_until_deployment(name=None, state=None, timeout=120, namespace=None, de
     first = True
     processing = True
     podtype = 'deployment' if deployment else 'pod'
-    podtype = '' if 'svc' in name else podtype  # do not specify podtype for a service
+    podtype = '' if service else podtype  # do not specify podtype for a service
     ip_pattern = r'[0-9]+(?:\.[0-9]+){3}'  # e.g. 1.2.3.4
     port_pattern = r'([0-9]+)\:.'  # e.g. 80:30525/TCP
     while processing and (now - starttime < timeout):
 
-        resource = 'services' if 'svc' in name else name
+        resource = 'services' if service else name
         cmd = "kubectl get %s %s --namespace=%s" % (podtype, resource, namespace)
         logger.debug('executing cmd=\'%s\'', cmd)
         exitcode, stdout, stderr = execute(cmd)

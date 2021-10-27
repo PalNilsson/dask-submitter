@@ -351,7 +351,7 @@ class DaskSubmitter(object):
         """
 
         _, _ip, _stderr = utilities.wait_until_deployment(name=self._podnames.get(name, 'unknown'),
-                                                          namespace=self._namespace)
+                                                          namespace=self._namespace, service=True)
         return _ip, _stderr
 
 def cleanup(namespace=None, user_id=None, pvc=False, pv=False):
