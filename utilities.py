@@ -955,7 +955,7 @@ def get_jupyterlab_info(timeout=120, namespace=None):
     return '', podname, stderr
 
 
-def deploy_workers(scheduler_ip, _nworkers, yaml_files, namespace, user_id, imagename, mountpath):
+def deploy_workers(scheduler_ip, _nworkers, yaml_files, namespace, user_id, imagename, mountpath, workdir):
     """
     Deploy the worker pods and return a dictionary with the worker info.
 
@@ -968,6 +968,7 @@ def deploy_workers(scheduler_ip, _nworkers, yaml_files, namespace, user_id, imag
     :param user_id: user id (string).
     :param imagename: image name (string).
     :param mountpath: FS mount path (string).
+    :param workdir: path to working directory (string).
     :return: worker info dictionary, stderr (dictionary, string).
     """
 
@@ -975,7 +976,7 @@ def deploy_workers(scheduler_ip, _nworkers, yaml_files, namespace, user_id, imag
     for _iworker in range(_nworkers):
 
         worker_name = 'dask-worker-%d' % _iworker
-        worker_path = os.path.join(os.getcwd(), yaml_files.get('dask-worker') % _iworker)
+        worker_path = os.path.join(workdir, yaml_files.get('dask-worker') % _iworker)
         worker_info[worker_name] = worker_path
 
         # create worker yaml
@@ -985,7 +986,7 @@ def deploy_workers(scheduler_ip, _nworkers, yaml_files, namespace, user_id, imag
                                       worker_name=worker_name,
                                       namespace=namespace,
                                       user_id=user_id)
-        status = write_file(worker_path, worker_yaml, mute=False)
+        status = write_file(worker_path, worker_yaml)
         if not status:
             stderr = 'cannot continue since yaml file could not be created'
             logger.warning(stderr)
