@@ -567,7 +567,6 @@ spec:
   type: LoadBalancer
   selector:
     name: CHANGE_SERVICENAME
-    env: prod
   ports:
   - protocol: TCP
     port: CHANGE_PORT
