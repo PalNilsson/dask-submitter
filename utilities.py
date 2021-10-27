@@ -295,13 +295,14 @@ def wait_until_deployment(name=None, state=None, timeout=120, namespace=None, de
 
         resource = 'services' if 'svc' in name else name
         cmd = "kubectl get %s %s --namespace=%s" % (podtype, resource, namespace)
-        #logger.debug('executing cmd=\'%s\'', cmd)
+        logger.debug('executing cmd=\'%s\'', cmd)
         exitcode, stdout, stderr = execute(cmd)
         if stderr and stderr.lower().startswith('error'):
             logger.warning('failed:\n%s', stderr)
             break
 
         dictionary = _convert_to_dict(stdout)
+        logger.debug('dict=%s', str(dictionary))
         if dictionary:
             for _name in dictionary:  # e.g. _name = dask-scheduler-svc, kubernetes
                 _dic = dictionary.get(_name)
@@ -332,6 +333,9 @@ def wait_until_deployment(name=None, state=None, timeout=120, namespace=None, de
         now = time.time()
 
     status = True if (_state and _state == state) else False
+    logger.debug('status=%s', str(status))
+    logger.debug('external ip=%s', str(_external_ip))
+    logger.debug('stderr=%s', stderr)
     return status, _external_ip, stderr
 
 
