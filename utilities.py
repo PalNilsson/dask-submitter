@@ -217,7 +217,7 @@ def kubectl_execute(cmd=None, filename=None, pod=None, namespace=None):
     if cmd in ['get pods', 'logs']:
         execmd += ' --namespace=%s' % namespace
 
-    logger.debug('executing: %s', execmd)
+    #logger.debug('executing: %s', execmd)
     exitcode, stdout, stderr = execute(execmd)
 #    if exitcode and stderr.lower().startswith('error'):
     if exitcode and stderr:
@@ -296,14 +296,13 @@ def wait_until_deployment(name=None, state=None, timeout=120, namespace=None, de
 
         resource = 'services' if service else name
         cmd = "kubectl get %s %s --namespace=%s" % (podtype, resource, namespace)
-        logger.debug('executing cmd=\'%s\'', cmd)
+        #logger.debug('executing cmd=\'%s\'', cmd)
         exitcode, stdout, stderr = execute(cmd)
         if stderr and stderr.lower().startswith('error'):
             logger.warning('failed:\n%s', stderr)
             break
 
         dictionary = _convert_to_dict(stdout)
-        logger.debug('dict=%s', str(dictionary))
         if dictionary:
             for _name in dictionary:  # e.g. _name = dask-scheduler-svc, kubernetes
                 _dic = dictionary.get(_name)
@@ -334,9 +333,6 @@ def wait_until_deployment(name=None, state=None, timeout=120, namespace=None, de
         now = time.time()
 
     status = True if (_state and _state == state) else False
-    logger.debug('status=%s', str(status))
-    logger.debug('external ip=%s', str(_external_ip))
-    logger.debug('stderr=%s', stderr)
     return status, _external_ip, stderr
 
 
@@ -875,7 +871,6 @@ def get_scheduler_info(timeout=480, namespace=None):
     scheduler_ip = ""
 
     podname = get_pod_name(namespace=namespace, pattern=r'(dask\-scheduler\-.+)')
-    logger.debug('got pod name=%s', podname)
     status, _, stderr = wait_until_deployment(name=podname, state='Running', timeout=120, namespace=namespace, deployment=False)
     if not status:
         return scheduler_ip, podname, stderr
@@ -938,8 +933,6 @@ def get_jupyterlab_info(timeout=120, namespace=None):
             logger.warning('jupyterlab pod stdout:\n%s', stdout)
             logger.warning('jupyterlab pod failed to start: %s', stderr)
             return '', podname, stderr
-
-        logger.debug(stdout)
 
         for line in stdout.split('\n'):
             if "Jupyter Server" in line and 'is running at:' in line:

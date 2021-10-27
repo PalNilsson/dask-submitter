@@ -335,8 +335,6 @@ class DaskSubmitter(object):
         if not status:
             logger.warning('failed to create %s pod: %s', self._podnames.get(servicename, 'unknown'), _stderr)
             return _stderr
-        else:
-            logger.debug('created %s service', self._podnames.get(servicename, 'unknown'))
 
 #        status, _external_ip, _stderr = utilities.wait_until_deployment(name=self._podnames.get('dask-scheduler-service','unknown'), namespace=self._namespace)
 
@@ -419,7 +417,7 @@ if __name__ == '__main__':
     logging.info("*** Dask submitter ***")
     logging.info("Python version %s", sys.version)
     starttime = time.time()
-    submitter = DaskSubmitter(nworkers=2)
+    submitter = DaskSubmitter(nworkers=10)
 
     # this should be an input parameter
     workdir = os.getcwd()
@@ -478,8 +476,6 @@ if __name__ == '__main__':
             logger.warning('failed to deploy %s pod: %s', service, stderr)
             cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
             exit(-1)
-        else:
-            logger.debug('deployed %s pod', service)
 
     # get the scheduler and jupyterlab info
     # for the dask scheduler, the internal IP number is needed
@@ -504,8 +500,6 @@ if __name__ == '__main__':
     #status = utilities.kubectl_execute(cmd='config use-context', namespace='default')
 
     # deploy the worker pods
-    logger.debug('service_info=%s', str(service_info))
-
     status, stderr = submitter.deploy_dask_workers(workdir, scheduler_ip=service_info['dask-scheduler'].get('internal_ip'),
                                                    scheduler_pod_name=service_info['dask-scheduler'].get('pod_name'),
                                                    jupyter_pod_name=service_info['jupyterlab'].get('pod_name'))
