@@ -14,19 +14,16 @@ import sys
 import time
 from string import ascii_lowercase
 
-#try:
-#    # import dask
-#    import dask_kubernetes
-##except ModuleNotFoundError:  # Python 3
-#except Exception:
-#    pass
-
-#import re
-#from time import sleep
-
 import utilities
 
 logger = logging.getLogger(__name__)
+ERROR_NAMESPACE = 1
+ERROR_PVPVC = 2
+ERROR_CREATESERVICE = 3
+ERROR_LOADBALANCER = 4
+ERROR_DEPLOYMENT = 5
+ERROR_PODFAILURE = 6
+ERROR_DASKWORKER = 7
 
 
 class DaskSubmitter(object):
@@ -352,6 +349,175 @@ class DaskSubmitter(object):
                                                           namespace=self._namespace, service=True)
         return _ip, _stderr
 
+    def install(self, timing, interactive_mode=True):
+        """
+        Install all services and deploy all pods.
+
+        The service_info dictionary containers service info partially to be returned to the user (external and internal IPs)
+        It has the format
+          { service: {'external_ip': <ext. ip>, 'internal_ip': <int. ip>, 'pod_name': <pod_name>}, ..}
+
+        :param timing: timing dictionary.
+        :param interactive_mode: True for interactive mode (Boolean).
+        :return: exit code (int), service_info (dictionary), stderr (string).
+        """
+
+        exitcode = 0
+        service_info = {}
+
+        # create unique name space
+        status, stderr = submitter.create_namespace(workdir)
+        if not status:
+            stderr = 'failed to create namespace %s: %s' % (submitter.get_namespace(), stderr)
+            logger.warning(stderr)
+            cleanup()
+            return ERROR_NAMESPACE, {}, stderr
+        timing['tnamespace': time.time()]
+        logger.info('created namespace: %s', submitter.get_namespace())
+
+        # create PVC and PV
+        for name in ['pvc', 'pv']:
+            status, stderr = submitter.create_pvcpv(workdir, name=name)
+            if not status:
+                stderr = 'could not create PVC/PV: %s' % stderr
+                logger.warning(stderr)
+                cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid())
+                exitcode = ERROR_PVPVC
+                break
+        timing['tpvcpv': time.time()]
+        if exitcode:
+            return exitcode, {}, stderr
+        logger.info('created PVC and PV')
+
+        # create the dask scheduler service with a load balancer (the external IP of the load balancer will be made
+        # available to the caller)
+        # [wait until external IP is available]
+        services = ['dask-scheduler', 'jupyterlab']
+        for service in services:
+            _service = service + '-service'
+            ports = submitter.get_ports(_service)
+            stderr = submitter.create_service(_service, ports[0], ports[1], workdir)
+            if stderr:
+                exitcode = ERROR_CREATESERVICE
+                cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
+                break
+        timing['tservices': time.time()]
+        if exitcode:
+            return exitcode, {}, stderr
+
+        # start services with load balancers
+        for service in services:
+            _service = service + '-service'
+            _ip, stderr = submitter.wait_for_service(_service)
+            if stderr:
+                stderr = 'failed to start load balancer for %s: %s' % (_service, stderr)
+                logger.warning(stderr)
+                cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
+                exitcode = ERROR_LOADBALANCER
+                break
+            if service not in service_info:
+                service_info[service] = {}
+            service_info[service]['external_ip'] = _ip
+            logger.info('load balancer for %s has external ip=%s', _service, service_info[service].get('external_ip'))
+        timing['tloadbalancers': time.time()]
+        if exitcode:
+            return exitcode, {}, stderr
+
+        # deploy the dask scheduler (the scheduler IP will only be available from within the cluster)
+        for service in services:
+            stderr = submitter.deploy_service_pod(service, workdir)
+            if stderr:
+                stderr = 'failed to deploy %s pod: %s' % (service, stderr)
+                logger.warning(stderr)
+                cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
+                exitcode = ERROR_DEPLOYMENT
+                break
+        timing['tdeployments': time.time()]
+        if exitcode:
+            return exitcode, {}, stderr
+
+        # get the scheduler and jupyterlab info
+        # for the dask scheduler, the internal IP number is needed
+        # for jupyterlab, we only need to verify that it started properly
+        for service in services:
+            internal_ip, _pod_name, stderr = submitter.get_service_info(service)
+            if stderr:
+                stderr = '%s pod failed: %s' % (service, stderr)
+                logger.warning(stderr)
+                cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
+                exitcode = ERROR_PODFAILURE
+                break
+            service_info[service]['internal_ip'] = internal_ip
+            service_info[service]['pod_name'] = _pod_name
+            if internal_ip:
+                logger.info('pod %s with internal ip=%s started correctly', _pod_name, internal_ip)
+            else:
+                logger.info('pod %s started correctly', _pod_name)
+        timing['tserviceinfo': time.time()]
+        if exitcode:
+            return exitcode, {}, stderr
+
+        # switch context for the new namespace
+        # status = utilities.kubectl_execute(cmd='config use-context', namespace=namespace)
+
+        # switch context for the new namespace
+        # status = utilities.kubectl_execute(cmd='config use-context', namespace='default')
+
+        # deploy the worker pods
+        status, stderr = submitter.deploy_dask_workers(workdir,
+                                                       scheduler_ip=service_info['dask-scheduler'].get('internal_ip'),
+                                                       scheduler_pod_name=service_info['dask-scheduler'].get(
+                                                           'pod_name'),
+                                                       jupyter_pod_name=service_info['jupyterlab'].get('pod_name'))
+        if not status:
+            stderr = 'failed to deploy dask workers: %s' % stderr
+            logger.warning(stderr)
+            cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
+            exitcode = ERROR_DASKWORKER
+        timing['tdaskworkers': time.time()]
+        if exitcode:
+            return exitcode, {}, stderr
+        logger.info('deployed all dask-worker pods')
+
+        # return the jupyterlab and dask scheduler IPs to the user in interactive mode
+        if interactive_mode:
+            return exitcode, service_info, stderr
+
+        #######################################
+
+        # deploy the pilot pod
+        status, _, stderr = submitter.deploy_pilot(workdir, service_info['dask-scheduler-service'].get('internal_ip'))
+
+        # time.sleep(30)
+        cmd = 'kubectl logs dask-pilot --namespace=%s' % submitter.get_namespace()
+        logger.debug('executing: %s', cmd)
+        ec, stdout, stderr = utilities.execute(cmd)
+        logger.debug(stdout)
+
+        if not status:
+            cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
+            exit(-1)
+        logger.info('deployed pilot pod')
+
+        return exitcode, stderr
+
+    def timing_report(self, timing, info=None):
+        """
+        Display the timing report.
+
+        :param timing: timing dictionary.
+        :param info: info string to be prepended to timing report (string).
+        :return:
+        """
+
+        _info = info if info else ''
+        _info += '\n* timing report ****************************************'
+        for key in timing:
+            _info += '\n%s:\t\t%d s' % (timing.get(key) - timing.get('t0'))
+        _info += '\ntotal time: %d' % sum((timing[key] - timing['t0']) for key in timing)
+        _info += '\n********************************************************'
+        logger.info(_info)
+
 def cleanup(namespace=None, user_id=None, pvc=False, pv=False):
     """
     General cleanup.
@@ -411,132 +577,31 @@ def cleanup(namespace=None, user_id=None, pvc=False, pv=False):
 
 if __name__ == '__main__':
 
-    # move this code to install()
-
+    #
+    timing = {'t0': time.time()}
     utilities.establish_logging()
+
     logging.info("*** Dask submitter ***")
     logging.info("Python version %s", sys.version)
-    starttime = time.time()
-    submitter = DaskSubmitter(nworkers=10)
 
-    # this should be an input parameter
+    # input parameters [to be passed to the script]
     workdir = os.getcwd()
+    nworkers = 2
+    interactive_mode = True
 
-    # create unique name space
-    status, stderr = submitter.create_namespace(workdir)
-    if not status:
-        logger.warning('failed to create namespace %s: %s', submitter.get_namespace(), stderr)
-        cleanup()
+    submitter = DaskSubmitter(nworkers=nworkers)
+    exitcode, service_info, diagnostics = submitter.install(timing)
+    if exitcode:
         exit(-1)
-    logger.info('created namespace: %s', submitter.get_namespace())
-
-    # create PVC and PV
-    for name in ['pvc', 'pv']:
-        status, stderr = submitter.create_pvcpv(workdir, name=name)
-        if not status:
-            logger.warning('could not create PVC/PV: %s', stderr)
-            cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid())
-            exit(-1)
-    logger.info('created PVC and PV')
-
-    # create the dask scheduler service with a load balancer (the external IP of the load balancer will be made
-    # available to the caller)
-    # [wait until external IP is available]
-    services = ['dask-scheduler', 'jupyterlab']
-    for service in services:
-        _service = service + '-service'
-        ports = submitter.get_ports(_service)
-        stderr = submitter.create_service(_service, ports[0], ports[1], workdir)
-        if stderr:
-            logger.warning('failed to deploy %s: %s', _service, stderr)
-            cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
-            exit(-1)
-
-    # dictionary with service info partially to be returned to the user (external and internal IPs)
-    service_info = {}  # { service: {'external_ip': <ext. ip>, 'internal_ip': <int. ip>, 'pod_name': <pod_name>}, ..}
-
-    # start services with load balancers
-    for service in services:
-        _service = service + '-service'
-        _ip, stderr = submitter.wait_for_service(_service)
-        if stderr:
-            logger.warning('failed to start load balancer for %s: %s', _service, stderr)
-            cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
-            exit(-1)
-        if service not in service_info:
-            service_info[service] = {}
-        service_info[service]['external_ip'] = _ip
-
-        logger.info('load balancer for %s has external ip=%s', _service, service_info[service].get('external_ip'))
-
-    # deploy the dask scheduler (the scheduler IP will only be available from within the cluster)
-    for service in services:
-        stderr = submitter.deploy_service_pod(service, workdir)
-        if stderr:
-            logger.warning('failed to deploy %s pod: %s', service, stderr)
-            cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
-            exit(-1)
-
-    # get the scheduler and jupyterlab info
-    # for the dask scheduler, the internal IP number is needed
-    # for jupyterlab, we only need to verify that it started properly
-    for service in services:
-        internal_ip, _pod_name, stderr = submitter.get_service_info(service)
-        if stderr:
-            logger.warning('%s pod failed: %s', service, stderr)
-            #cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
-            exit(-1)
-        service_info[service]['internal_ip'] = internal_ip
-        service_info[service]['pod_name'] = _pod_name
-        if internal_ip:
-            logger.info('pod %s with internal ip=%s started correctly', _pod_name, internal_ip)
-        else:
-            logger.info('pod %s started correctly', _pod_name)
-
-    # switch context for the new namespace
-    #status = utilities.kubectl_execute(cmd='config use-context', namespace=namespace)
-
-    # switch context for the new namespace
-    #status = utilities.kubectl_execute(cmd='config use-context', namespace='default')
-
-    # deploy the worker pods
-    status, stderr = submitter.deploy_dask_workers(workdir, scheduler_ip=service_info['dask-scheduler'].get('internal_ip'),
-                                                   scheduler_pod_name=service_info['dask-scheduler'].get('pod_name'),
-                                                   jupyter_pod_name=service_info['jupyterlab'].get('pod_name'))
-    if not status:
-        logger.warning('failed to deploy dask workers: %s', stderr)
-        cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
-        exit(-1)
-    logger.info('deployed all dask-worker pods')
-
-    info = '\n********************************************************'
-    info += '\ndask scheduler has external ip=%s' % service_info['dask-scheduler'].get('external_ip')
-    info += '\ndask scheduler has internal ip=%s' % service_info['dask-scheduler'].get('internal_ip')
-    info += '\njupyterlab has external ip=%s' % service_info['jupyterlab'].get('external_ip')
-    info += '\n********************************************************'
-    logger.info(info)
-
-    # cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
-    exit(0)
-
-    #######################################
-
-    # deploy the pilot pod
-    status, _, stderr = submitter.deploy_pilot(workdir, service_info['dask-scheduler-service'].get('internal_ip'))
-
-    # time.sleep(30)
-    cmd = 'kubectl logs dask-pilot --namespace=%s' % submitter.get_namespace()
-    logger.debug('executing: %s', cmd)
-    ec, stdout, stderr = utilities.execute(cmd)
-    logger.debug(stdout)
-
-    if not status:
-        cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
-        exit(-1)
-    logger.info('deployed pilot pod')
+    if service_info:
+        info = '\n********************************************************'
+        info += '\ndask scheduler has external ip=%s' % service_info['dask-scheduler'].get('external_ip')
+        info += '\ndask scheduler has internal ip=%s' % service_info['dask-scheduler'].get('internal_ip')
+        info += '\njupyterlab has external ip=%s' % service_info['jupyterlab'].get('external_ip')
 
     # done, cleanup and exit
-    now = time.time()
-    logger.info('total running time: %d s', now - starttime)
-    #cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
+    timing['tstop': time.time()]
+    submitter.timing_report(timing, info=info)
+    if not interactive_mode:
+        cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
     exit(0)
