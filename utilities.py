@@ -100,10 +100,10 @@ def execute(executable, **kwargs):
     cwd = kwargs.get('cwd', os.getcwd())
     stdout = kwargs.get('stdout', subprocess.PIPE)
     stderr = kwargs.get('stderr', subprocess.PIPE)
-    timeout = kwargs.get('timeout', 120)
-    usecontainer = kwargs.get('usecontainer', False)
+    # timeout = kwargs.get('timeout', 120)
+    # usecontainer = kwargs.get('usecontainer', False)
     returnproc = kwargs.get('returnproc', False)
-    job = kwargs.get('job')
+    # job = kwargs.get('job')
 
     # convert executable to string if it is a list
     if type(executable) is list:
@@ -217,9 +217,8 @@ def kubectl_execute(cmd=None, filename=None, pod=None, namespace=None):
     if cmd in ['get pods', 'logs']:
         execmd += ' --namespace=%s' % namespace
 
-    #logger.debug('executing: %s', execmd)
+    # logger.debug('executing: %s', execmd)
     exitcode, stdout, stderr = execute(execmd)
-#    if exitcode and stderr.lower().startswith('error'):
     if exitcode and stderr:
         logger.warning('failed:\n%s', stderr)
         status = False
@@ -296,7 +295,7 @@ def wait_until_deployment(name=None, state=None, timeout=120, namespace=None, de
 
         resource = 'services' if service else name
         cmd = "kubectl get %s %s --namespace=%s" % (podtype, resource, namespace)
-        #logger.debug('executing cmd=\'%s\'', cmd)
+        # logger.debug('executing cmd=\'%s\'', cmd)
         exitcode, stdout, stderr = execute(cmd)
         if stderr and stderr.lower().startswith('error'):
             logger.warning('failed:\n%s', stderr)
@@ -383,7 +382,7 @@ def open_file(filename, mode):
         f = open(filename, mode)
     except IOError as exc:
         logger.warning('caught exception: %s', exc)
-        #raise FileHandlingFailure(exc)
+        # raise FileHandlingFailure(exc)
 
     return f
 
@@ -407,7 +406,7 @@ def write_json(filename, data, sort_keys=True, indent=4, separators=(',', ': '))
         with open(filename, 'w') as fh:
             dumpjson(data, fh, sort_keys=sort_keys, indent=indent, separators=separators)
     except IOError as exc:
-        #raise FileHandlingFailure(exc)
+        # raise FileHandlingFailure(exc)
         logger.warning('caught exception: %s', exc)
     else:
         status = True
@@ -430,17 +429,13 @@ def write_file(path, contents, mute=True, mode='w', unique=False):
 
     status = False
 
-    # add an incremental file name (add -%d if path already exists) if necessary
-    #if unique:
-    #    path = get_nonexistant_path(path)
-
     f = open_file(path, mode)
     if f:
         try:
             f.write(contents)
         except IOError as exc:
             logger.warning('caught exception: %s', exc)
-            #raise FileHandlingFailure(exc)
+            # raise FileHandlingFailure(exc)
         else:
             status = True
         f.close()
@@ -1018,7 +1013,6 @@ def await_worker_deployment(worker_info, namespace, scheduler_pod_name='', jupyt
     stderr = ''
     starttime = time.time()
     now = starttime
-    _state = None
     _sleep = 5
     processing = True
     status = True

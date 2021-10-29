@@ -518,6 +518,7 @@ class DaskSubmitter(object):
         _info += '\n********************************************************'
         logger.info(_info)
 
+
 def cleanup(namespace=None, user_id=None, pvc=False, pv=False):
     """
     General cleanup.
