@@ -517,6 +517,29 @@ class DaskSubmitter(object):
         _info += '\n********************************************************'
         logger.info(_info)
 
+    def create_cleanup_script(self):
+        """
+        Create a clean-up script, useful for interactive sessions (at least in stand-alone mode).
+
+        :return:
+        """
+
+        cmds = '#!/bin/bash\n'
+        cmds += 'kubectl delete --all deployments --namespace=single-user-%s\n' % self._userid
+        cmds += 'kubectl delete --all pods --namespace=single-user-%s\n' % self._userid
+        cmds += 'kubectl delete --all services --namespace=single-user-%s\n' % self._userid
+        cmds += 'kubectl patch pvc fileserver-claim -p \'{"metadata":{"finalizers":null}}\' --namespace=single-user-%s\n' % self._userid
+        cmds += 'kubectl delete pvc fileserver-claim --namespace=single-user-%s\n' % self._userid
+        cmds += 'kubectl patch pv fileserver-`echo $DASKUSER` -p \'{"metadata":{"finalizers":null}}\' --namespace=single-user-%s\n' % self._userid
+        cmds += 'kubectl delete pv fileserver-`echo $DASKUSER` --namespace=single-user-%s\n' % self._userid
+        cmds += 'kubectl delete namespaces single-user-%s\n' % self._userid
+
+        path = os.path.join(self._workdir, 'deleteall.sh')
+        status = utilities.write_file(path, cmds)
+        if not status:
+            return False, 'write_file failed for file %s' % path
+        else:
+            os.chmod(path, 0o755)
 
 def cleanup(namespace=None, user_id=None, pvc=False, pv=False):
     """
@@ -608,7 +631,9 @@ if __name__ == '__main__':
             info += '\njupyterlab has external ip %s' % service_info['jupyterlab'].get('external_ip')
 
         # done, cleanup and exit
-        if not interactive_mode:
+        if interactive_mode:
+            submitter.create_cleanup_script()
+        else:
             cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
     except Exception as exc:
         logger.warning('exception caught: %s', exc)
