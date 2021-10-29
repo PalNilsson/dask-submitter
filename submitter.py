@@ -514,6 +514,7 @@ class DaskSubmitter(object):
         _info += '\n* timing report ****************************************'
         for key in timing:
             _info += '\n%s:\t\t\t%d s' % (key, timing.get(key) - timing.get('t0'))
+        _info += '\n----------------------------------'
         _info += '\ntotal time:\t\t\t%d s' % sum((timing[key] - timing['t0']) for key in timing)
         _info += '\n********************************************************'
         logger.info(_info)
