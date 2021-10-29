@@ -106,7 +106,7 @@ def execute(executable, **kwargs):
     # job = kwargs.get('job')
 
     # convert executable to string if it is a list
-    if type(executable) is list:
+    if isinstance(executable, list):
         executable = ' '.join(executable)
 
     exe = ['/bin/bash', '-c', executable]
