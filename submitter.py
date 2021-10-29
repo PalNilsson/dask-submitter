@@ -513,7 +513,7 @@ class DaskSubmitter(object):
         _info = info if info else ''
         _info += '\n* timing report ****************************************'
         for key in timing:
-            _info += '\n%s:\t\t%d s' % (timing.get(key) - timing.get('t0'))
+            _info += '\n%s:\t\t%d s' % (key, timing.get(key) - timing.get('t0'))
         _info += '\ntotal time: %d' % sum((timing[key] - timing['t0']) for key in timing)
         _info += '\n********************************************************'
         logger.info(_info)
@@ -591,18 +591,22 @@ if __name__ == '__main__':
     interactive_mode = True
 
     submitter = DaskSubmitter(nworkers=nworkers)
-    exitcode, service_info, diagnostics = submitter.install(timing)
-    if exitcode:
-        exit(-1)
-    if service_info:
-        info = '\n********************************************************'
-        info += '\ndask scheduler has external ip=%s' % service_info['dask-scheduler'].get('external_ip')
-        info += '\ndask scheduler has internal ip=%s' % service_info['dask-scheduler'].get('internal_ip')
-        info += '\njupyterlab has external ip=%s' % service_info['jupyterlab'].get('external_ip')
+    try:
+        exitcode, service_info, diagnostics = submitter.install(timing)
+        if exitcode:
+            exit(-1)
+        if service_info:
+            info = '\n********************************************************'
+            info += '\ndask scheduler has external ip=%s' % service_info['dask-scheduler'].get('external_ip')
+            info += '\ndask scheduler has internal ip=%s' % service_info['dask-scheduler'].get('internal_ip')
+            info += '\njupyterlab has external ip=%s' % service_info['jupyterlab'].get('external_ip')
 
-    # done, cleanup and exit
-    timing['tstop'] = time.time()
-    submitter.timing_report(timing, info=info)
-    if not interactive_mode:
+        # done, cleanup and exit
+        timing['tstop'] = time.time()
+        submitter.timing_report(timing, info=info)
+        if not interactive_mode:
+            cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
+    except Exception as exc:
+        logger.warning('exception caught: %s', exc)
         cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
     exit(0)
