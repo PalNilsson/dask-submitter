@@ -372,7 +372,7 @@ class DaskSubmitter(object):
             logger.warning(stderr)
             cleanup()
             return ERROR_NAMESPACE, {}, stderr
-        timing['tnamespace': time.time()]
+        timing['tnamespace'] = time.time()
         logger.info('created namespace: %s', submitter.get_namespace())
 
         # create PVC and PV
@@ -384,7 +384,7 @@ class DaskSubmitter(object):
                 cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid())
                 exitcode = ERROR_PVPVC
                 break
-        timing['tpvcpv': time.time()]
+        timing['tpvcpv'] = time.time()
         if exitcode:
             return exitcode, {}, stderr
         logger.info('created PVC and PV')
@@ -401,7 +401,7 @@ class DaskSubmitter(object):
                 exitcode = ERROR_CREATESERVICE
                 cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
                 break
-        timing['tservices': time.time()]
+        timing['tservices'] = time.time()
         if exitcode:
             return exitcode, {}, stderr
 
@@ -419,7 +419,7 @@ class DaskSubmitter(object):
                 service_info[service] = {}
             service_info[service]['external_ip'] = _ip
             logger.info('load balancer for %s has external ip=%s', _service, service_info[service].get('external_ip'))
-        timing['tloadbalancers': time.time()]
+        timing['tloadbalancers'] = time.time()
         if exitcode:
             return exitcode, {}, stderr
 
@@ -432,7 +432,7 @@ class DaskSubmitter(object):
                 cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
                 exitcode = ERROR_DEPLOYMENT
                 break
-        timing['tdeployments': time.time()]
+        timing['tdeployments'] = time.time()
         if exitcode:
             return exitcode, {}, stderr
 
@@ -453,7 +453,7 @@ class DaskSubmitter(object):
                 logger.info('pod %s with internal ip=%s started correctly', _pod_name, internal_ip)
             else:
                 logger.info('pod %s started correctly', _pod_name)
-        timing['tserviceinfo': time.time()]
+        timing['tserviceinfo'] = time.time()
         if exitcode:
             return exitcode, {}, stderr
 
@@ -474,7 +474,7 @@ class DaskSubmitter(object):
             logger.warning(stderr)
             cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
             exitcode = ERROR_DASKWORKER
-        timing['tdaskworkers': time.time()]
+        timing['tdaskworkers'] = time.time()
         if exitcode:
             return exitcode, {}, stderr
         logger.info('deployed all dask-worker pods')
@@ -601,7 +601,7 @@ if __name__ == '__main__':
         info += '\njupyterlab has external ip=%s' % service_info['jupyterlab'].get('external_ip')
 
     # done, cleanup and exit
-    timing['tstop': time.time()]
+    timing['tstop'] = time.time()
     submitter.timing_report(timing, info=info)
     if not interactive_mode:
         cleanup(namespace=submitter.get_namespace(), user_id=submitter.get_userid(), pvc=True, pv=True)
