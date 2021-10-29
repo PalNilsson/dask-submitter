@@ -585,15 +585,17 @@ if __name__ == '__main__':
     logging.info("Python version %s", sys.version)
 
     # input parameters [to be passed to the script]
-    workdir = os.getcwd()
-    nworkers = 2
-    interactive_mode = True
-    password = 'trustno1'
+    workdir = os.getcwd()  # working directory
+    nworkers = 2  # number of dask workers
+    interactive_mode = True  # True means interactive jupyterlab session, False means pilot pod runs user payload
+    password = 'trustno1'  # jupyterlab password
+    userid = ''.join(random.choice(ascii_lowercase) for _ in range(5))  # unique 5-char user id (basically for K8)
 
     submitter = DaskSubmitter(nworkers=nworkers,
                               password=password,
                               interactive_mode=interactive_mode,
-                              workdir=workdir)
+                              workdir=workdir,
+                              userid=userid)
     try:
         exitcode, service_info, diagnostics = submitter.install(timing)
         if exitcode:
