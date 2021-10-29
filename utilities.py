@@ -377,14 +377,14 @@ def open_file(filename, mode):
     :return: file pointer.
     """
 
-    f = None
     try:
-        f = open(filename, mode)
+        _file = open(filename, mode)
     except IOError as exc:
+        _file = None
         logger.warning('caught exception: %s', exc)
         # raise FileHandlingFailure(exc)
 
-    return f
+    return _file
 
 
 def write_json(filename, data, sort_keys=True, indent=4, separators=(',', ': ')):
@@ -403,8 +403,8 @@ def write_json(filename, data, sort_keys=True, indent=4, separators=(',', ': '))
     status = False
 
     try:
-        with open(filename, 'w') as fh:
-            dumpjson(data, fh, sort_keys=sort_keys, indent=indent, separators=separators)
+        with open(filename, 'w') as _fh:
+            dumpjson(data, _fh, sort_keys=sort_keys, indent=indent, separators=separators)
     except IOError as exc:
         # raise FileHandlingFailure(exc)
         logger.warning('caught exception: %s', exc)
@@ -414,31 +414,30 @@ def write_json(filename, data, sort_keys=True, indent=4, separators=(',', ': '))
     return status
 
 
-def write_file(path, contents, mute=True, mode='w', unique=False):
+def write_file(path, contents, mute=True, mode='w'):
     """
     Write the given contents to a file.
-    If unique=True, then if the file already exists, an index will be added (e.g. 'out.txt' -> 'out-1.txt')
+
     :param path: full path for file (string).
     :param contents: file contents (object).
     :param mute: boolean to control stdout info message.
     :param mode: file mode (e.g. 'w', 'r', 'a', 'wb', 'rb') (string).
-    :param unique: file must be unique (Boolean).
     :raises PilotException: FileHandlingFailure.
     :return: True if successful, otherwise False.
     """
 
     status = False
 
-    f = open_file(path, mode)
-    if f:
+    _file = open_file(path, mode)
+    if _file:
         try:
-            f.write(contents)
+            _file.write(contents)
         except IOError as exc:
             logger.warning('caught exception: %s', exc)
             # raise FileHandlingFailure(exc)
         else:
             status = True
-        f.close()
+        _file.close()
 
     if not mute:
         if 'w' in mode:
@@ -1040,7 +1039,7 @@ def await_worker_deployment(worker_info, namespace, scheduler_pod_name='', jupyt
             # is the worker in Running state?
             try:
                 state = dictionary[worker_name]['STATUS']
-            except Exception as exc:
+            except KeyError as exc:
                 stderr = 'caught exception: %s', exc
                 logger.warning(stderr)
             else:
