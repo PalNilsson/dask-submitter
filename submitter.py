@@ -602,9 +602,10 @@ if __name__ == '__main__':
             exit(-1)
         if service_info:
             info = '\n********************************************************'
-            info += '\ndask scheduler has external ip=%s' % service_info['dask-scheduler'].get('external_ip')
-            info += '\ndask scheduler has internal ip=%s' % service_info['dask-scheduler'].get('internal_ip')
-            info += '\njupyterlab has external ip=%s' % service_info['jupyterlab'].get('external_ip')
+            info += '\nuser id: %s' % userid
+            info += '\ndask scheduler has external ip %s' % service_info['dask-scheduler'].get('external_ip')
+            info += '\ndask scheduler has internal ip %s' % service_info['dask-scheduler'].get('internal_ip')
+            info += '\njupyterlab has external ip %s' % service_info['jupyterlab'].get('external_ip')
 
         # done, cleanup and exit
         if not interactive_mode:
