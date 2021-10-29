@@ -572,7 +572,7 @@ spec:
     return yaml
 
 
-def get_scheduler_yaml(image_source=None, nfs_path=None, namespace=None, user_id=None, port=8786):
+def get_scheduler_yaml(image_source=None, nfs_path=None, namespace=None, user_id=None, port=8786, password=None):
     """
     Return the yaml for the Dask scheduler for a given image and the path to the shared file system.
 
@@ -581,6 +581,7 @@ def get_scheduler_yaml(image_source=None, nfs_path=None, namespace=None, user_id
     :param namespace: namespace (string).
     :param user_id: user id (string).
     :param port: optional container port (int).
+    :param password: (not used).
     :return: yaml (string).
     """
 
@@ -638,7 +639,7 @@ spec:
     return yaml
 
 
-def get_jupyterlab_yaml(image_source=None, nfs_path=None, namespace=None, user_id=None, port=8888):
+def get_jupyterlab_yaml(image_source=None, nfs_path=None, namespace=None, user_id=None, port=8888, password=None):
     """
     Return the yaml for jupyterlab for a given image and the path to the shared file system.
 
@@ -646,6 +647,7 @@ def get_jupyterlab_yaml(image_source=None, nfs_path=None, namespace=None, user_i
     :param nfs_path: NFS path (string).
     :param namespace: namespace (string).
     :param user_id: user id (string).
+    :param password: jupyterlab login password (string).
     :return: yaml (string).
     """
 
@@ -660,6 +662,9 @@ def get_jupyterlab_yaml(image_source=None, nfs_path=None, namespace=None, user_i
         return ""
     if not user_id:
         logger.warning('user id must be set')
+        return ""
+    if not password:
+        logger.warning('password must be set')
         return ""
 
     yaml = """
@@ -693,7 +698,7 @@ spec:
             - /bin/bash
             - -c
             - |
-              start.sh jupyter lab --LabApp.token='password' --LabApp.ip='0.0.0.0' --LabApp.allow_root=True
+              start.sh jupyter lab --LabApp.token='CHANGE_PASSWORD' --LabApp.ip='0.0.0.0' --LabApp.allow_root=True
           volumeMounts:
             - name: fileserver-CHANGE_USERID
               mountPath: CHANGE_NFS_PATH
@@ -708,6 +713,7 @@ spec:
     yaml = yaml.replace('CHANGE_NAMESPACE', namespace)
     yaml = yaml.replace('CHANGE_PORT', str(port))
     yaml = yaml.replace('CHANGE_USERID', user_id)
+    yaml = yaml.replace('CHANGE_PASSWORD', password)
 
     return yaml
 

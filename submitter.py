@@ -39,6 +39,7 @@ class DaskSubmitter(object):
     _mountpath = '/mnt/dask'
     _ispvc = False  # set when PVC is successfully created
     _ispv = False  # set when PV is successfully created
+    _password = None
 
     _files = {
         'dask-scheduler-service': 'dask-scheduler-service.yaml',
@@ -187,7 +188,8 @@ class DaskSubmitter(object):
                     nfs_path=self._mountpath,
                     namespace=self._namespace,
                     user_id=self._userid,
-                    port=self.get_ports(name)[1])
+                    port=self.get_ports(name)[1],
+                    password=self._password)
         status = utilities.write_file(path, yaml, mute=False)
         if not status:
             stderr = 'cannot continue since file %s could not be created' % path
@@ -349,7 +351,7 @@ class DaskSubmitter(object):
                                                           namespace=self._namespace, service=True)
         return _ip, _stderr
 
-    def install(self, timing, interactive_mode=True):
+    def install(self, timing, interactive_mode=True, password=None, workdir=os.getcwd()):
         """
         Install all services and deploy all pods.
 
@@ -359,11 +361,16 @@ class DaskSubmitter(object):
 
         :param timing: timing dictionary.
         :param interactive_mode: True for interactive mode (Boolean).
+        :param password: jupyterlab password (string).
+        :param workdir: workdir (string).
         :return: exit code (int), service_info (dictionary), stderr (string).
         """
 
         exitcode = 0
         service_info = {}
+
+        if password:
+            self._password = password
 
         # create unique name space
         status, stderr = submitter.create_namespace(workdir)
@@ -590,10 +597,14 @@ if __name__ == '__main__':
     workdir = os.getcwd()
     nworkers = 2
     interactive_mode = True
+    password = 'trustno1'
 
     submitter = DaskSubmitter(nworkers=nworkers)
     try:
-        exitcode, service_info, diagnostics = submitter.install(timing)
+        exitcode, service_info, diagnostics = submitter.install(timing,
+                                                                interactive_mode=interactive_mode,
+                                                                password=password,
+                                                                workdir=workdir)
         if exitcode:
             exit(-1)
         if service_info:
