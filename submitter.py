@@ -594,9 +594,6 @@ def cleanup(namespace=None, user_id=None, pvc=False, pv=False):
         ec, stdout, stderr = utilities.execute(cmd)
         logger.debug(stdout)
 
-    # terminate logging
-    # ..
-
 
 if __name__ == '__main__':
 
