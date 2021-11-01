@@ -597,7 +597,6 @@ def cleanup(namespace=None, user_id=None, pvc=False, pv=False):
 
 if __name__ == '__main__':
 
-    #
     timing = {'t0': time.time()}
     utilities.establish_logging()
 
