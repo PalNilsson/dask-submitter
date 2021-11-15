@@ -56,10 +56,10 @@ class DaskSubmitter(object):
     }
 
     _images = {
-        'dask-scheduler': 'palnilsson/dask-scheduler:latest',
-        'dask-worker': 'palnilsson/dask-worker:latest',
+        'dask-scheduler': 'europe-west1-docker.pkg.dev/gke-dev-311213/dask-images/dask-scheduler:latest',
+        'dask-worker': 'europe-west1-docker.pkg.dev/gke-dev-311213/dask-images/dask-worker:latest',
         'dask-pilot': 'palnilsson/dask-pilot:latest',
-        'jupyterlab': 'jupyter/datascience-notebook:latest',
+        'jupyterlab': 'europe-west1-docker.pkg.dev/gke-dev-311213/dask-images/datascience-notebook:latest',
     }
 
     _podnames = {
