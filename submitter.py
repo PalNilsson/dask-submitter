@@ -530,8 +530,8 @@ class DaskSubmitter(object):
         cmds += 'kubectl delete --all services --namespace=single-user-%s\n' % self._userid
         cmds += 'kubectl patch pvc fileserver-claim -p \'{"metadata":{"finalizers":null}}\' --namespace=single-user-%s\n' % self._userid
         cmds += 'kubectl delete pvc fileserver-claim --namespace=single-user-%s\n' % self._userid
-        cmds += 'kubectl patch pv fileserver-`echo $DASKUSER` -p \'{"metadata":{"finalizers":null}}\' --namespace=single-user-%s\n' % self._userid
-        cmds += 'kubectl delete pv fileserver-`echo $DASKUSER` --namespace=single-user-%s\n' % self._userid
+        cmds += 'kubectl patch pv fileserver-%s -p \'{"metadata":{"finalizers":null}}\' --namespace=single-user-%s\n' % (self._userid, self._userid)
+        cmds += 'kubectl delete pv fileserver-%s --namespace=single-user-%s\n' % (self._userid, self._userid)
         cmds += 'kubectl delete namespaces single-user-%s\n' % self._userid
 
         path = os.path.join(self._workdir, 'deleteall.sh')
