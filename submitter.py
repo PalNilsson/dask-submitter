@@ -133,7 +133,7 @@ class DaskSubmitter(object):
         namespace_filename = os.path.join(self._workdir, self._files.get('namespace', 'unknown'))
         return utilities.create_namespace(self._namespace, namespace_filename)
 
-    def create_pvcpv(self, name='pvc'):
+    def create_pvcpv(self, name='pvc', nfs_server='10.226.152.66'):
         """
         Create the PVC or PV.
 
@@ -149,7 +149,7 @@ class DaskSubmitter(object):
         # create the yaml file
         path = os.path.join(os.path.join(self._workdir, self._files.get(name, 'unknown')))
         func = utilities.get_pvc_yaml if name == 'pvc' else utilities.get_pv_yaml
-        yaml = func(namespace=self._namespace, user_id=self._userid)
+        yaml = func(namespace=self._namespace, user_id=self._userid, nfs_server=nfs_server)
         status = utilities.write_file(path, yaml)
         if not status:
             return False, 'write_file failed for file %s' % path

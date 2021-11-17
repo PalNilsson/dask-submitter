@@ -487,11 +487,12 @@ spec:
     return yaml
 
 
-def get_pvc_yaml(namespace=None, user_id=None):
+def get_pvc_yaml(namespace=None, user_id=None, nfs_server=None):
     """
 
     :param namespace: namespace (string).
     :param user_id: user id (string).
+    :param nfs_server: Not used (string).
     :return: yaml (string).
     """
 
