@@ -478,6 +478,13 @@ class DaskSubmitter(object):
             return exitcode, {}, stderr
         logger.info('deployed all dask-worker pods')
 
+        # launch pilot pod with stager workflow enabled
+        # note: the pilot will start staging files asynchronously to everything else. The user will need to check
+        # when the input files are available (a staging report can be made available) in the user area
+
+        # need to communicate user area + job description
+        # this script should place the job description in the user area
+
         # return the jupyterlab and dask scheduler IPs to the user in interactive mode
         if self._interactive_mode:
             return exitcode, service_info, stderr
